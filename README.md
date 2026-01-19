@@ -28,7 +28,7 @@ A portfolio and stock tracking application built with Django REST API and Vue.js
 
 1. Clone the repository
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/tomsin9/stocker.git
    cd tom_stocker
    ```
 
