@@ -1,0 +1,11 @@
+Django>=5.0
+djangorestframework
+django-cors-headers
+django-environ
+gunicorn
+pandas
+psycopg2-binary
+whitenoise
+yfinance
+# redis
+# celery

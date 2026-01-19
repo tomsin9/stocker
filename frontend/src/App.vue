@@ -1,30 +1,22 @@
 <script setup>
-import HelloWorld from './components/HelloWorld.vue'
+import { provideCurrency } from '@/composables/useCurrency'
+import SideNavigation from '@/components/SideNavigation.vue'
+
+// 提供貨幣狀態給子組件
+provideCurrency()
 </script>
 
 <template>
-  <div>
-    <a href="https://vite.dev" target="_blank">
-      <img src="/vite.svg" class="logo" alt="Vite logo" />
-    </a>
-    <a href="https://vuejs.org/" target="_blank">
-      <img src="./assets/vue.svg" class="logo vue" alt="Vue logo" />
-    </a>
-  </div>
-  <HelloWorld msg="Vite + Vue" />
-</template>
+  <div class="min-h-screen bg-background flex flex-col md:flex-row">
+    <!-- Desktop: Side Navigation -->
+    <SideNavigation />
 
-<style scoped>
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.vue:hover {
-  filter: drop-shadow(0 0 2em #42b883aa);
-}
-</style>
+    <!-- Main Content Area -->
+    <main class="flex-1 flex flex-col min-h-screen md:min-h-0">
+      <!-- Router View -->
+      <div class="flex-1 pb-16 md:pb-0">
+        <router-view />
+      </div>
+    </main>
+  </div>
+</template>

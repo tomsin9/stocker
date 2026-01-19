@@ -1,0 +1,111 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "refresh": "Refresh",
+    "add": "Add",
+    "upload": "Upload",
+    "import": "Import"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "lastUpdated": "Last updated",
+    "notUpdated": "Not updated yet",
+    "refreshPrices": "Refresh Prices",
+    "refreshing": "Refreshing...",
+    "addTransaction": "Add Transaction",
+    "importCSV": "Import CSV",
+    "totalMarketValue": "Total Market Value",
+    "unrealizedPL": "Unrealized P/L",
+    "realizedPL": "Realized P/L",
+    "totalReturn": "Total Return",
+    "totalReturnPercent": "Total Return %",
+    "totalInvested": "Total Invested Capital",
+    "availableCash": "Available Cash",
+    "netProfit": "Net Profit",
+    "totalAssets": "Total Assets",
+    "depositFunds": "Deposit Funds",
+    "withdrawFunds": "Withdraw Funds",
+    "currency": "Currency",
+    "usd": "USD",
+    "hkd": "HKD",
+    "switchCurrency": "Switch Currency",
+    "holdings": "Holdings",
+    "holdingsDescription": "Portfolio calculated using FIFO method",
+    "symbol": "Symbol",
+    "quantity": "Quantity",
+    "avgCost": "Average Cost",
+    "currentPrice": "Current Price",
+    "unrealizedPLShort": "Unrealized P/L",
+    "returnRate": "Return Rate",
+    "noHoldings": "No holdings yet. Please import trade records or add a transaction.",
+    "fifoInventory": "FIFO Inventory"
+  },
+  "transaction": {
+    "title": "Add Transaction Manually",
+    "description": "Enter transaction details to add to portfolio",
+    "symbol": "Stock Symbol",
+    "symbolPlaceholder": "e.g., AAPL, TSLA, 700.HK",
+    "type": "Transaction Type",
+    "buy": "Buy",
+    "sell": "Sell",
+    "price": "Price",
+    "pricePlaceholder": "0.00",
+    "quantity": "Quantity",
+    "quantityPlaceholder": "0",
+    "date": "Transaction Date",
+    "fees": "Fees (Optional)",
+    "feesPlaceholder": "0.00"
+  },
+  "cashflow": {
+    "title": "Cash Flow",
+    "depositTitle": "Deposit Funds",
+    "withdrawTitle": "Withdraw Funds",
+    "depositDescription": "Record a fund deposit",
+    "withdrawDescription": "Record a fund withdrawal",
+    "amount": "Amount",
+    "amountPlaceholder": "0.00",
+    "type": "Type",
+    "date": "Date",
+    "notes": "Notes (Optional)",
+    "notesPlaceholder": "e.g., Salary deposit, emergency expense, etc."
+  },
+  "messages": {
+    "fetchError": "Failed to fetch data",
+    "updateError": "Failed to update prices",
+    "saveError": "Failed to save",
+    "importSuccess": "Import successful!",
+    "uploadError": "Upload failed"
+  },
+  "navigation": {
+    "overview": "Overview",
+    "transactions": "Transactions",
+    "assets": "Assets",
+    "add": "Add",
+    "settings": "Settings"
+  },
+  "transactions": {
+    "title": "Transaction History",
+    "description": "View all your trading records",
+    "noTransactions": "No transactions yet"
+  },
+  "settings": {
+    "title": "Settings",
+    "description": "Customize your app preferences",
+    "appearance": "Appearance",
+    "appearanceDescription": "Customize the look and feel",
+    "theme": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "language": "Language",
+    "languageDescription": "Choose your preferred language",
+    "currency": "Currency",
+    "currencyDescription": "Switch between USD and HKD"
+  },
+  "assets": {
+    "title": "Assets",
+    "description": "View all your asset holdings",
+    "noAssets": "No assets yet"
+  }
+}

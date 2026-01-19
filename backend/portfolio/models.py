@@ -60,3 +60,75 @@ class Transaction(models.Model):
         elif self.action == 'DIVIDEND':
             return self.price * self.quantity # 這裡 price 可以當作每股股息
         return 0
+
+
+class AccountBalance(models.Model):
+    """
+    記錄目前的可用現金餘額
+    這個模型只會有一筆記錄，代表當前的現金餘額
+    """
+    available_cash = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2, 
+        default=0.0,
+        help_text="目前可用現金"
+    )
+    last_updated = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Account Balance"
+        verbose_name_plural = "Account Balance"
+    
+    def __str__(self):
+        return f"Available Cash: ${self.available_cash}"
+    
+    @classmethod
+    def get_current_balance(cls):
+        """
+        取得目前的現金餘額
+        注意：實際計算在 services.calculate_current_cash() 中進行
+        這個方法保留用於向後兼容
+        """
+        from .services import calculate_current_cash
+        return calculate_current_cash()
+
+
+class CashFlow(models.Model):
+    """
+    記錄現金流 (入金/出金)
+    用於追蹤用戶投入了多少本金
+    """
+    TYPE_CHOICES = [
+        ('DEPOSIT', 'Deposit (存入)'),
+        ('WITHDRAW', 'Withdraw (提取)'),
+    ]
+    
+    amount = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2,
+        help_text="金額"
+    )
+    type = models.CharField(
+        max_length=10, 
+        choices=TYPE_CHOICES,
+        help_text="類型：存入或提取"
+    )
+    date = models.DateField(
+        default=timezone.now,
+        help_text="日期"
+    )
+    notes = models.TextField(
+        blank=True, 
+        null=True,
+        help_text="備註"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-date', '-created_at']
+        verbose_name = "Cash Flow"
+        verbose_name_plural = "Cash Flows"
+    
+    def __str__(self):
+        return f"{self.date} - {self.type} ${self.amount}"
+    

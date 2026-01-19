@@ -1,0 +1,111 @@
+{
+  "common": {
+    "loading": "載入中...",
+    "save": "儲存",
+    "cancel": "取消",
+    "refresh": "更新",
+    "add": "新增",
+    "upload": "上傳",
+    "import": "匯入"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "lastUpdated": "最後更新",
+    "notUpdated": "尚未更新",
+    "refreshPrices": "更新股價",
+    "refreshing": "更新中...",
+    "addTransaction": "新增交易",
+    "importCSV": "匯入 CSV",
+    "totalMarketValue": "總市值",
+    "unrealizedPL": "帳面損益",
+    "realizedPL": "已實現損益",
+    "totalReturn": "總回報率",
+    "totalReturnPercent": "總回報率",
+    "totalInvested": "總投入本金",
+    "availableCash": "可用現金",
+    "netProfit": "淨利潤",
+    "totalAssets": "總資產",
+    "depositFunds": "存入資金",
+    "withdrawFunds": "提取資金",
+    "currency": "貨幣",
+    "usd": "美元 (USD)",
+    "hkd": "港元 (HKD)",
+    "switchCurrency": "切換貨幣",
+    "holdings": "持倉明細",
+    "holdingsDescription": "使用 FIFO 方法計算的投資組合",
+    "symbol": "股票代號",
+    "quantity": "股數",
+    "avgCost": "平均成本",
+    "currentPrice": "目前市價",
+    "unrealizedPLShort": "帳面損益",
+    "returnRate": "損益率",
+    "noHoldings": "目前沒有持倉，請先匯入交易紀錄或新增交易。",
+    "fifoInventory": "FIFO Inventory"
+  },
+  "transaction": {
+    "title": "手動新增交易",
+    "description": "輸入交易詳情以新增到投資組合",
+    "symbol": "股票代號",
+    "symbolPlaceholder": "例如: AAPL, TSLA, 700.HK",
+    "type": "交易類型",
+    "buy": "買入 (Buy)",
+    "sell": "賣出 (Sell)",
+    "price": "價格",
+    "pricePlaceholder": "0.00",
+    "quantity": "股數",
+    "quantityPlaceholder": "0",
+    "date": "交易日期",
+    "fees": "手續費 (可選)",
+    "feesPlaceholder": "0.00"
+  },
+  "cashflow": {
+    "title": "現金流",
+    "depositTitle": "存入資金",
+    "withdrawTitle": "提取資金",
+    "depositDescription": "記錄一筆資金存入",
+    "withdrawDescription": "記錄一筆資金提取",
+    "amount": "金額",
+    "amountPlaceholder": "0.00",
+    "type": "類型",
+    "date": "日期",
+    "notes": "備註 (可選)",
+    "notesPlaceholder": "例如: 薪資入帳、緊急支出等"
+  },
+  "messages": {
+    "fetchError": "無法取得資料",
+    "updateError": "更新股價失敗",
+    "saveError": "儲存失敗",
+    "importSuccess": "匯入成功！",
+    "uploadError": "上傳失敗"
+  },
+  "navigation": {
+    "overview": "資產總覽",
+    "transactions": "交易紀錄",
+    "assets": "資產",
+    "add": "新增",
+    "settings": "設定"
+  },
+  "transactions": {
+    "title": "交易紀錄",
+    "description": "查看所有交易記錄",
+    "noTransactions": "目前沒有交易記錄"
+  },
+  "settings": {
+    "title": "設定",
+    "description": "自訂應用程式偏好設定",
+    "appearance": "外觀",
+    "appearanceDescription": "自訂外觀和風格",
+    "theme": "主題",
+    "light": "淺色",
+    "dark": "深色",
+    "language": "語言",
+    "languageDescription": "選擇您的偏好語言",
+    "currency": "貨幣",
+    "currencyDescription": "在美元和港元之間切換"
+  },
+  "assets": {
+    "title": "資產",
+    "description": "查看所有資產持倉",
+    "noAssets": "目前沒有資產"
+  }
+}
