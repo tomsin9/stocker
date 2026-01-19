@@ -1,0 +1,24 @@
+# .gitignore
+
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+staticfiles/
+
+# Node.js (Frontend)
+frontend/node_modules/
+frontend/dist/
+
+# Docker
+.docker/
+
+# Mac 系統檔案
+.DS_Store
+
+# 資料庫 (如果是 SQLite)
+*.sqlite3
