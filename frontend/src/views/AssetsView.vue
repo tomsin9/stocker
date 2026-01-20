@@ -15,7 +15,9 @@ const { currentCurrency } = injectCurrency()
 
 const portfolio = ref([])
 const isLoading = ref(false)
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000/api'
+// API 連線設定
+// 在生產模式下使用相對路徑，通過 Nginx 代理；開發模式下使用環境變數或 localhost
+const API_BASE = import.meta.env.VITE_API_BASE || (import.meta.env.PROD ? '/api' : 'http://localhost:8000/api')
 
 const fetchAssets = async () => {
   isLoading.value = true
