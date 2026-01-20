@@ -7,7 +7,6 @@ export default defineConfig(({ mode }) => {
   // 載入環境變數 (從專案根目錄或 frontend 目錄)
   const env = loadEnv(mode, process.cwd(), '');
   
-  // 處理 ALLOWED_HOSTS 字串轉陣列
   const allowedHosts = env.VITE_ALLOWED_HOSTS 
     ? env.VITE_ALLOWED_HOSTS.split(',') 
     : ['localhost'];
@@ -20,11 +19,10 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
-      host: '0.0.0.0',
+      // 如需從其他裝置存取，可改為 '0.0.0.0'（會觸發瀏覽器權限提示）
+      host: process.env.VITE_DEV_HOST || 'localhost',
       port: 8082,
-      // 關鍵：加入從 .env 讀取的允許名單
       allowedHosts: allowedHosts,
-      // 為了在 Docker 內能即時監控檔案變化
       watch: {
         usePolling: true,
       }
