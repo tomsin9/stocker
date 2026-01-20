@@ -1,48 +1,49 @@
 version: '3.8'
 
 services:
-  # === Database ===
   db:
+    container_name: stocker-postgres
     image: postgres:15-alpine
+    expose:
+      - "5432" # Expose port 5432 to the container internally
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - stocker_db_data:/var/lib/postgresql/data
     environment:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-    ports:
-      - "5432:5432"
+    # ports:
+    #   - "5432:5432"
 
-  # === Backend (Django) ===
   backend:
+    container_name: stocker-backend
     build: ./backend
-    # command: python manage.py runserver 0.0.0.0:8000
     entrypoint: ["/bin/bash", "/app/docker-entrypoint.sh"]
-    volumes:
-      - ./backend:/app  # Hot Reload: 改 code 即時生效
+    # volumes:
+    #   - ./backend:/app  # Hot Reload: 改 code 即時生效
     ports:
-      - "8000:8000"
+      - "8002:8000"  # 主機 8002 映射到容器 8000
     depends_on:
       - db
     env_file:
       - .env
+    restart: always
 
-  # === Frontend (Vue) ===
   frontend:
+    container_name: stocker-frontend
     build: ./frontend
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules # 避免本地 node_modules 覆蓋容器內的
+    # volumes:
+    #   - ./frontend:/app
+    #   - /app/node_modules # 避免本地 node_modules 覆蓋容器內的
     ports:
-      - "5173:5173"
-    environment:
-      - CHOKIDAR_USEPOLLING=true
+      - "8082:80"
+    restart: always
 
-  # === Redis (Optional - 先寫好備用) ===
+  # === Redis (Optional) ===
   # redis:
   #   image: redis:alpine
   #   ports:
   #     - "6379:6379"
 
 volumes:
-  postgres_data:
+  stocker_db_data:

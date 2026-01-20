@@ -13,7 +13,7 @@ RUN npm install
 COPY . .
 
 # 開放 Vite 預設 port
-EXPOSE 5173
+EXPOSE 8082
 
 # 啟動開發伺服器 (--host 0.0.0.0 是為了讓 Docker 外部能訪問)
 CMD ["npm", "run", "dev", "--", "--host"]
