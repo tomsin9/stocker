@@ -1,19 +1,22 @@
-# frontend/Dockerfile
-FROM node:22-alpine
+# Stage 1: Build Vue app
+FROM node:20-alpine AS build-stage
 
 WORKDIR /app
-
-# 複製 package 設定
 COPY package*.json ./
-
-# 安裝依賴
 RUN npm install
-
-# 複製其餘檔案
 COPY . .
+# Vite 會根據這個指令生成 dist/ 資料夾
+RUN npm run build
 
-# 開放 Vite 預設 port
-EXPOSE 8082
 
-# 啟動開發伺服器 (--host 0.0.0.0 是為了讓 Docker 外部能訪問)
-CMD ["npm", "run", "dev", "--", "--host"]
+# Stage 2: Serve with Nginx
+FROM nginx:stable-alpine AS production-stage
+
+# 複製編譯好的靜態檔案到 Nginx 目錄
+COPY --from=build-stage /app/dist /usr/share/nginx/html
+
+# 覆蓋 Nginx 預設設定（選用，見下方說明）
+# COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
