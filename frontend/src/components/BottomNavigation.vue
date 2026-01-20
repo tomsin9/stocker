@@ -17,9 +17,9 @@ const { openAddOptions } = injectAddOptions()
 
 const navItems = computed(() => [
   { name: 'home', path: '/', icon: Home, label: t('navigation.overview') },
-  { name: 'transactions', path: '/transactions', icon: History, label: t('navigation.transactions') },
-  { name: 'add', path: null, icon: Plus, label: t('navigation.add'), action: true, onClick: props.onAddClick },
   { name: 'assets', path: '/assets', icon: Package, label: t('navigation.assets') },
+  { name: 'add', path: null, icon: Plus, label: t('navigation.add'), action: true, onClick: props.onAddClick },
+  { name: 'transactions', path: '/transactions', icon: History, label: t('navigation.transactions') },
   { name: 'settings', path: '/settings', icon: Settings, label: t('navigation.settings') },
 ])
 
