@@ -108,7 +108,7 @@ const goBack = () => {
 
 <style scoped>
 .safe-area-bottom {
-  padding-bottom: calc(env(safe-area-inset-bottom) + 4rem);
+  padding-bottom: calc(env(safe-area-inset-bottom) + 0.5rem);
 }
 
 @media (min-width: 768px) {

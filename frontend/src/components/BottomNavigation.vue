@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { Home, History, Package, Settings, Plus } from 'lucide-vue-next'
 import { cn } from '@/lib/utils'
+import { injectAddOptions } from '@/composables/useAddOptions'
 
 const props = defineProps({
   onAddClick: { type: Function, default: null }
@@ -12,6 +13,7 @@ const props = defineProps({
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
+const { openAddOptions } = injectAddOptions()
 
 const navItems = computed(() => [
   { name: 'home', path: '/', icon: Home, label: t('navigation.overview') },
@@ -27,8 +29,13 @@ const isActive = (path) => {
 }
 
 const handleClick = (item) => {
-  if (item.action && item.onClick) {
-    item.onClick()
+  if (item.action) {
+    // 優先使用全局的 addOptions，如果沒有則使用 prop 的 onClick
+    if (openAddOptions) {
+      openAddOptions()
+    } else if (item.onClick) {
+      item.onClick()
+    }
   } else if (item.path) {
     router.push(item.path)
   }

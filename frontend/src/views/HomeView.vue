@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import axios from 'axios'
 import { Button } from '@/components/ui/button'
@@ -8,7 +8,7 @@ import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetT
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { RefreshCw, Plus, Upload, TrendingUp, TrendingDown, DollarSign, Package, Wallet, PiggyBank } from 'lucide-vue-next'
+import { RefreshCw, Plus, Upload, TrendingUp, TrendingDown, DollarSign, Package, Wallet, PiggyBank, ArrowDownCircle, ArrowUpCircle } from 'lucide-vue-next'
 import { cn } from '@/lib/utils'
 import { injectCurrency } from '@/composables/useCurrency'
 import BottomNavigation from '@/components/BottomNavigation.vue'
@@ -260,8 +260,65 @@ const submitCashFlow = async (type) => {
   }
 }
 
+// 監聽來自 AddOptionsModal 的事件
+const handleOpenAddTransaction = () => {
+  showAddModal.value = true
+}
+
+const handleOpenDeposit = () => {
+  showDepositModal.value = true
+}
+
+const handleOpenWithdraw = () => {
+  showWithdrawModal.value = true
+}
+
+const handleOpenImport = () => {
+  showImportModal.value = true
+}
+
+const handleImportCSV = async (event) => {
+  const file = event.detail?.file
+  if (!file) return
+  
+  const formData = new FormData()
+  formData.append('file', file)
+  try {
+    await axios.post(`${API_BASE}/import-csv/`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+    await fetchData()
+    alert(t('messages.importSuccess'))
+  } catch (e) { 
+    console.error(e)
+    const errorMessage = e.response?.data?.detail || 
+                        e.response?.data?.error || 
+                        e.response?.data?.message ||
+                        e.message || 
+                        t('messages.uploadError')
+    alert(`${t('messages.uploadError')}: ${errorMessage}`)
+  }
+}
+
 onMounted(() => {
   fetchData()
+  
+  // 監聽自定義事件
+  window.addEventListener('openAddTransaction', handleOpenAddTransaction)
+  window.addEventListener('openDeposit', handleOpenDeposit)
+  window.addEventListener('openWithdraw', handleOpenWithdraw)
+  window.addEventListener('openImport', handleOpenImport)
+})
+
+onUnmounted(() => {
+  // 清理事件監聽器
+  window.removeEventListener('openAddTransaction', handleOpenAddTransaction)
+  window.removeEventListener('openDeposit', handleOpenDeposit)
+  window.removeEventListener('openWithdraw', handleOpenWithdraw)
+  window.removeEventListener('openImport', handleOpenImport)
+  window.removeEventListener('importCSV', handleImportCSV)
 })
 </script>
 
@@ -288,7 +345,7 @@ onMounted(() => {
               <RefreshCw :class="cn('h-4 w-4', isLoading && 'animate-spin')" />
               <span class="hidden sm:inline">{{ isLoading ? t('dashboard.refreshing') : t('dashboard.refreshPrices') }}</span>
             </Button>
-            <!-- Desktop: Add Transaction and Import CSV buttons -->
+            <!-- Desktop: Add Transaction, Deposit, Withdraw and Import CSV buttons -->
             <div class="hidden md:flex gap-2">
               <Button 
                 @click="showAddModal = true"
@@ -298,6 +355,24 @@ onMounted(() => {
               >
                 <Plus class="h-4 w-4 mr-2" />
                 {{ t('dashboard.addTransaction') }}
+              </Button>
+              <Button 
+                @click="showDepositModal = true"
+                variant="outline"
+                size="default"
+                class="min-h-[44px] active:scale-95"
+              >
+                <ArrowDownCircle class="h-4 w-4 mr-2" />
+                {{ t('dashboard.depositFunds') }}
+              </Button>
+              <Button 
+                @click="showWithdrawModal = true"
+                variant="outline"
+                size="default"
+                class="min-h-[44px] active:scale-95"
+              >
+                <ArrowUpCircle class="h-4 w-4 mr-2" />
+                {{ t('dashboard.withdrawFunds') }}
               </Button>
               <label class="cursor-pointer">
                 <Button 
@@ -324,7 +399,10 @@ onMounted(() => {
       <!-- Stats Cards - Horizontal Scroll on Mobile -->
       <div class="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
         <div class="flex md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 min-w-max md:min-w-0">
-          <Card class="min-w-[280px] md:min-w-0 flex-shrink-0 md:flex-shrink">
+          <Card 
+            class="min-w-[280px] md:min-w-0 flex-shrink-0 md:flex-shrink cursor-pointer hover:bg-muted/50 transition-colors active:scale-[0.98]"
+            @click="showDepositModal = true"
+          >
             <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle class="text-sm font-medium truncate pr-2">{{ t('dashboard.totalInvested') }}</CardTitle>
               <PiggyBank class="h-4 w-4 text-muted-foreground flex-shrink-0" />
@@ -337,6 +415,7 @@ onMounted(() => {
                 {{ formatCurrency(summary.total_invested || 0) }}
               </div>
               <p class="text-xs text-muted-foreground mt-1">{{ t('dashboard.totalInvested') }}</p>
+              <p class="text-xs text-primary mt-1 font-medium">{{ t('dashboard.depositFunds') }}</p>
             </CardContent>
           </Card>
 
@@ -564,7 +643,7 @@ onMounted(() => {
     </div>
 
     <!-- Bottom Navigation (Mobile Only) -->
-    <BottomNavigation :on-add-click="() => showAddModal = true" />
+    <BottomNavigation />
 
     <!-- Add Transaction Sheet -->
     <Sheet v-model:open="showAddModal">
@@ -751,6 +830,7 @@ onMounted(() => {
         </SheetFooter>
       </SheetContent>
     </Sheet>
+
   </div>
 </template>
 
@@ -760,7 +840,7 @@ onMounted(() => {
 }
 
 .safe-area-bottom {
-  padding-bottom: calc(env(safe-area-inset-bottom) + 4rem);
+  padding-bottom: calc(env(safe-area-inset-bottom) + 0.5rem);
 }
 
 @media (min-width: 768px) {

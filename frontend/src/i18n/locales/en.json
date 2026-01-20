@@ -40,7 +40,9 @@
     "unrealizedPLShort": "Unrealized P/L",
     "returnRate": "Return Rate",
     "noHoldings": "No holdings yet. Please import trade records or add a transaction.",
-    "fifoInventory": "FIFO Inventory"
+    "fifoInventory": "FIFO Inventory",
+    "selectAction": "Select an action to perform",
+    "importCSVDescription": "Import transaction records from CSV file"
   },
   "transaction": {
     "title": "Add Transaction Manually",

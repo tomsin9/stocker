@@ -1,9 +1,14 @@
 <script setup>
 import { provideCurrency } from '@/composables/useCurrency'
+import { provideAddOptions } from '@/composables/useAddOptions'
 import SideNavigation from '@/components/SideNavigation.vue'
+import AddOptionsModal from '@/components/AddOptionsModal.vue'
 
 // 提供貨幣狀態給子組件
 provideCurrency()
+
+// 提供新增選項狀態給子組件
+provideAddOptions()
 </script>
 
 <template>
@@ -18,5 +23,8 @@ provideCurrency()
         <router-view />
       </div>
     </main>
+
+    <!-- Global Add Options Modal -->
+    <AddOptionsModal />
   </div>
 </template>

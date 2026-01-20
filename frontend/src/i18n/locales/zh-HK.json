@@ -40,7 +40,9 @@
     "unrealizedPLShort": "帳面損益",
     "returnRate": "損益率",
     "noHoldings": "目前沒有持倉，請先匯入交易紀錄或新增交易。",
-    "fifoInventory": "FIFO Inventory"
+    "fifoInventory": "FIFO Inventory",
+    "selectAction": "選擇要執行的操作",
+    "importCSVDescription": "從 CSV 檔案匯入交易紀錄"
   },
   "transaction": {
     "title": "手動新增交易",

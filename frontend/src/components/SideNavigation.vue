@@ -62,10 +62,14 @@
       <div :class="cn('flex items-center border-b my-auto', isCollapsed ? 'justify-center h-[72px]' : 'px-4 h-[72px]')">
         <router-link to="/" :class="cn('flex items-center overflow-hidden group', isCollapsed ? '' : 'gap-3')">
           <div :class="cn(
-            'bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20 transition-all duration-300',
+            'rounded-xl flex items-center justify-center shadow-lg shadow-primary/20 transition-all duration-300 overflow-hidden',
             isCollapsed ? 'w-[40px] h-[40px]' : 'w-[40px] h-[40px]'
           )">
-            <span class="text-primary-foreground font-black text-2xl italic">S</span>
+            <img 
+              src="/favicon/apple-touch-icon.png" 
+              alt="Stocker" 
+              class="w-full h-full object-cover"
+            />
           </div>
           <span :class="cn('text-xl font-bold transition-all duration-300 whitespace-nowrap', isCollapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto')">
             Stocker
