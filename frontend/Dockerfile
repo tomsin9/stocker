@@ -5,6 +5,15 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
+
+# 接受構建參數（用於環境變數）
+ARG VITE_API_BASE
+ARG VITE_ALLOWED_HOSTS
+
+# 設置環境變數（Vite 在構建時會讀取 VITE_* 開頭的環境變數）
+ENV VITE_API_BASE=${VITE_API_BASE}
+ENV VITE_ALLOWED_HOSTS=${VITE_ALLOWED_HOSTS}
+
 # Vite 會根據這個指令生成 dist/ 資料夾
 RUN npm run build
 

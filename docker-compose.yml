@@ -31,9 +31,11 @@ services:
 
   frontend:
     container_name: stocker-frontend
-    build: ./frontend
-    environment:
-      - VITE_ALLOWED_HOSTS=${ALLOWED_HOSTS}
+    build:
+      context: ./frontend
+      args:
+        - VITE_API_BASE=${VITE_API_BASE:-http://localhost:8000/api}
+        - VITE_ALLOWED_HOSTS=${ALLOWED_HOSTS}
     # volumes:
     #   - ./frontend:/app
     #   - /app/node_modules # 避免本地 node_modules 覆蓋容器內的

@@ -33,7 +33,7 @@ const isLoading = ref(false)
 const lastUpdated = ref(null)
 
 // API 連線設定
-const API_BASE = 'http://localhost:8000/api'
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000/api'
 
 // 抓取後端 FIFO 計算後的數據
 const fetchData = async () => {
@@ -197,8 +197,13 @@ const submitTrade = async () => {
     }
     await fetchData() // 刷新列表
   } catch (e) { 
-    console.error(e)
-    alert(t('messages.saveError'))
+    console.error('Save transaction error:', e)
+    const errorMessage = e.response?.data?.detail || 
+                        e.response?.data?.error || 
+                        e.response?.data?.message ||
+                        e.message || 
+                        t('messages.saveError')
+    alert(`${t('messages.saveError')}: ${errorMessage}`)
   }
 }
 
@@ -244,8 +249,13 @@ const submitCashFlow = async (type) => {
     }
     await fetchData() // 刷新數據
   } catch (e) {
-    console.error(e)
-    alert(t('messages.saveError'))
+    console.error('Save cashflow error:', e)
+    const errorMessage = e.response?.data?.detail || 
+                        e.response?.data?.error || 
+                        e.response?.data?.message ||
+                        e.message || 
+                        t('messages.saveError')
+    alert(`${t('messages.saveError')}: ${errorMessage}`)
   }
 }
 
