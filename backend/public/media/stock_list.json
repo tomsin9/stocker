@@ -1,0 +1,53 @@
+{
+  "stocks": [
+    {
+      "symbol": "A",
+      "name": "Agilent Technologies, Inc.",
+      "currency": "USD",
+      "last_validated": "2026-01-21T10:50:46.117804"
+    },
+    {
+      "symbol": "F",
+      "name": "Ford Motor Company",
+      "currency": "USD",
+      "last_validated": "2026-01-21T10:51:27.131768"
+    },
+    {
+      "symbol": "0700.HK",
+      "name": "Tencent Holdings Limited",
+      "currency": "HKD",
+      "last_validated": "2026-01-21T10:53:30.279427"
+    },
+    {
+      "symbol": "0823.HK",
+      "name": "Link Real Estate Investment Trust",
+      "currency": "HKD",
+      "last_validated": "2026-01-21T10:56:34.813542"
+    },
+    {
+      "symbol": "TSLA",
+      "name": "Tesla, Inc.",
+      "currency": "USD",
+      "last_validated": "2026-01-21T11:51:08.007522"
+    },
+    {
+      "symbol": "AAPL",
+      "name": "Apple Inc.",
+      "currency": "USD",
+      "last_validated": "2026-01-21T11:47:27.938466"
+    },
+    {
+      "symbol": "0005.HK",
+      "name": "HSBC Holdings plc",
+      "currency": "HKD",
+      "last_validated": "2026-01-21T11:33:08.478807"
+    },
+    {
+      "symbol": "0010.HK",
+      "name": "Hang Lung Group Limited",
+      "currency": "HKD",
+      "last_validated": "2026-01-21T11:50:44.532432"
+    }
+  ],
+  "last_updated": "2026-01-21T11:51:08.007651"
+}

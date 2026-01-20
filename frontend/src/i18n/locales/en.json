@@ -6,7 +6,8 @@
     "refresh": "Refresh",
     "add": "Add",
     "upload": "Upload",
-    "import": "Import"
+    "import": "Import",
+    "actions": "Actions"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -16,7 +17,6 @@
     "refreshing": "Refreshing...",
     "addTransaction": "Add Transaction",
     "importCSV": "Import CSV",
-    "totalMarketValue": "Total Market Value",
     "unrealizedPL": "Unrealized P/L",
     "realizedPL": "Realized P/L",
     "totalReturn": "Total Return",
@@ -25,6 +25,10 @@
     "availableCash": "Available Cash",
     "netProfit": "Net Profit",
     "totalAssets": "Total Assets",
+    "netLiquidity": "Net Liquidity",
+    "netLiquidityDescription": "Total market value + cash (what you actually own)",
+    "grossPosition": "Gross Position",
+    "grossPositionDescription": "Long + Short absolute value (how much you're playing)",
     "depositFunds": "Deposit Funds",
     "withdrawFunds": "Withdraw Funds",
     "currency": "Currency",
@@ -37,6 +41,8 @@
     "quantity": "Quantity",
     "avgCost": "Average Cost",
     "currentPrice": "Current Price",
+    "totalCost": "Total Cost",
+    "totalMarketValue": "Total Market Value",
     "unrealizedPLShort": "Unrealized P/L",
     "returnRate": "Return Rate",
     "noHoldings": "No holdings yet. Please import trade records or add a transaction.",
@@ -48,7 +54,7 @@
     "title": "Add Transaction Manually",
     "description": "Enter transaction details to add to portfolio",
     "symbol": "Stock Symbol",
-    "symbolPlaceholder": "e.g., AAPL, TSLA, 700.HK",
+    "symbolPlaceholder": "e.g., AAPL, TSLA, 0700",
     "type": "Transaction Type",
     "buy": "Buy",
     "sell": "Sell",
@@ -58,7 +64,21 @@
     "quantityPlaceholder": "0",
     "date": "Transaction Date",
     "fees": "Fees (Optional)",
-    "feesPlaceholder": "0.00"
+    "feesPlaceholder": "0.00",
+    "errors": {
+      "symbolRequired": "Please enter stock symbol",
+      "quantityRequired": "Please enter quantity",
+      "quantityInvalid": "Quantity must be greater than 0",
+      "priceRequired": "Please enter price",
+      "priceInvalid": "Price must be greater than 0",
+      "dateRequired": "Please select transaction date",
+      "feesInvalid": "Fees cannot be negative"
+    },
+    "confirmDelete": "Are you sure you want to delete this transaction?",
+    "viewTransactions": "View Transactions",
+    "noTransactionsForSymbol": "No transactions found for this symbol",
+    "shortSellingNote": "Note: If you currently have no position, selling will be treated as short selling (opening a short position).",
+    "dividend": "Dividend"
   },
   "cashflow": {
     "title": "Cash Flow",
@@ -66,6 +86,8 @@
     "withdrawTitle": "Withdraw Funds",
     "depositDescription": "Record a fund deposit",
     "withdrawDescription": "Record a fund withdrawal",
+    "deposit": "Deposit",
+    "withdraw": "Withdraw",
     "amount": "Amount",
     "amountPlaceholder": "0.00",
     "type": "Type",
@@ -78,7 +100,9 @@
     "updateError": "Failed to update prices",
     "saveError": "Failed to save",
     "importSuccess": "Import successful!",
-    "uploadError": "Upload failed"
+    "uploadError": "Upload failed",
+    "deleteError": "Failed to delete",
+    "deleteSuccess": "Deleted successfully"
   },
   "navigation": {
     "overview": "Overview",
@@ -90,7 +114,39 @@
   "transactions": {
     "title": "Transaction History",
     "description": "View all your trading records",
-    "noTransactions": "No transactions yet"
+    "noTransactions": "No transactions yet",
+    "filter": {
+      "type": "Type",
+      "dateRange": "Date Range",
+      "all": "All",
+      "last7Days": "Last 7 Days",
+      "last30Days": "Last 30 Days",
+      "last90Days": "Last 90 Days",
+      "allTime": "All Time"
+    }
+  },
+  "assets": {
+    "title": "Assets",
+    "description": "View all your asset holdings",
+    "noAssets": "No assets yet"
+  },
+  "login": {
+    "title": "Stocker Login",
+    "description": "Please enter your username and password to login",
+    "username": "Username",
+    "usernamePlaceholder": "Enter administrator username",
+    "password": "Password",
+    "passwordPlaceholder": "Enter password",
+    "submit": "Login",
+    "submitting": "Logging in...",
+    "errors": {
+      "invalidCredentials": "Login failed: Invalid username or password",
+      "badRequest": "Invalid request format, please check your input",
+      "serverError": "Server error, please try again later",
+      "networkError": "Unable to connect to server, please check your network connection",
+      "unknownError": "An error occurred: {message}",
+      "default": "Login failed, please try again later"
+    }
   },
   "settings": {
     "title": "Settings",
@@ -103,11 +159,8 @@
     "language": "Language",
     "languageDescription": "Choose your preferred language",
     "currency": "Currency",
-    "currencyDescription": "Switch between USD and HKD"
-  },
-  "assets": {
-    "title": "Assets",
-    "description": "View all your asset holdings",
-    "noAssets": "No assets yet"
+    "currencyDescription": "Switch between USD and HKD",
+    "logout": "Logout",
+    "logoutDescription": "Logout from your account"
   }
 }

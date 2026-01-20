@@ -1,3 +1,4 @@
+from posixpath import curdir
 from django.contrib import admin
 from .models import Asset, Transaction, CashFlow, AccountBalance
 
@@ -8,9 +9,10 @@ class AssetAdmin(admin.ModelAdmin):
 
 @admin.register(Transaction)
 class TransactionAdmin(admin.ModelAdmin):
-    list_display = ('date', 'action', 'asset', 'price', 'quantity', 'total_amount')
-    list_filter = ('action', 'asset')
+    list_display = ('date', 'user', 'action', 'asset', 'currency', 'price', 'quantity', 'total_amount')
+    list_filter = ('user', 'currency', 'action', 'asset')
     date_hierarchy = 'date'
+    ordering = ('-date', '-created_at')
 
 @admin.register(CashFlow)
 class CashFlowAdmin(admin.ModelAdmin):

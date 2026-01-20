@@ -3,14 +3,14 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Globe, Moon, Sun, DollarSign, ArrowLeft } from 'lucide-vue-next'
-import { provideCurrency } from '@/composables/useCurrency'
+import { Globe, Moon, Sun, DollarSign, ArrowLeft, LogOut } from 'lucide-vue-next'
+import { injectCurrency } from '@/composables/useCurrency'
 import { useTheme } from '@/composables/useTheme'
 import BottomNavigation from '@/components/BottomNavigation.vue'
 
 const { locale, t } = useI18n()
 const router = useRouter()
-const { currentCurrency, switchCurrency } = provideCurrency()
+const { currentCurrency, switchCurrency } = injectCurrency()
 const { theme, toggleTheme } = useTheme()
 
 const toggleLocale = () => {
@@ -21,6 +21,15 @@ const toggleLocale = () => {
 
 const goBack = () => {
   router.back()
+}
+
+const handleLogout = () => {
+  // 清除所有本地存儲的認證信息
+  localStorage.removeItem('access_token')
+  localStorage.removeItem('refresh_token')
+  
+  // 跳轉到登入頁
+  router.push('/login')
 }
 </script>
 
@@ -46,7 +55,7 @@ const goBack = () => {
       </div>
 
       <!-- Settings Cards -->
-      <div class="space-y-4">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
             <CardTitle>{{ t('settings.appearance') }}</CardTitle>
@@ -95,6 +104,23 @@ const goBack = () => {
             >
               <DollarSign class="h-4 w-4 mr-2" />
               {{ currentCurrency === 'USD' ? t('dashboard.usd') : t('dashboard.hkd') }}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>{{ t('settings.logout') }}</CardTitle>
+            <CardDescription>{{ t('settings.logoutDescription') }}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button 
+              variant="outline" 
+              class="w-full justify-start min-h-[44px] active:scale-95 text-destructive hover:text-destructive hover:bg-destructive/10"
+              @click="handleLogout"
+            >
+              <LogOut class="h-4 w-4 mr-2" />
+              {{ t('settings.logout') }}
             </Button>
           </CardContent>
         </Card>

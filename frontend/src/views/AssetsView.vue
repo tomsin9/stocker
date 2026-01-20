@@ -2,12 +2,13 @@
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ArrowLeft } from 'lucide-vue-next'
 import { injectCurrency } from '@/composables/useCurrency'
 import BottomNavigation from '@/components/BottomNavigation.vue'
+import api from '@/api'
+import { cn } from '@/lib/utils'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -15,15 +16,20 @@ const { currentCurrency } = injectCurrency()
 
 const portfolio = ref([])
 const isLoading = ref(false)
-// API 連線設定
-// 在生產模式下使用相對路徑，通過 Nginx 代理；開發模式下使用環境變數或 localhost
-const API_BASE = import.meta.env.VITE_API_BASE || (import.meta.env.PROD ? '/api' : 'http://localhost:8000/api')
+const summary = ref({
+  exchange_rate: 7.8,
+  usd_to_hkd_rate: 7.8
+})
 
 const fetchAssets = async () => {
   isLoading.value = true
   try {
-    const response = await axios.get(`${API_BASE}/dashboard/`)
+    const response = await api.get('/dashboard/')
     portfolio.value = response.data.positions || []
+    summary.value = {
+      exchange_rate: response.data.summary?.exchange_rate || response.data.summary?.usd_to_hkd_rate || 7.8,
+      usd_to_hkd_rate: response.data.summary?.exchange_rate || response.data.summary?.usd_to_hkd_rate || 7.8
+    }
   } catch (error) {
     console.error('Failed to fetch assets', error)
   } finally {
@@ -31,16 +37,53 @@ const fetchAssets = async () => {
   }
 }
 
-const formatCurrency = (amount) => {
+// 獲取匯率
+const getExchangeRate = () => {
+  return summary.value.exchange_rate || summary.value.usd_to_hkd_rate || 7.8
+}
+
+const formatCurrency = (amount, originalCurrency = null) => {
   if (amount === null || amount === undefined || isNaN(amount)) {
     return currentCurrency.value === 'HKD' ? 'HK$0.00' : '$0.00'
   }
   const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount
+  const sourceCurrency = originalCurrency || 'USD'
+  const exchangeRate = getExchangeRate()
+  
+  // 如果原始幣種與當前顯示幣種不同，需要轉換
+  let displayAmount = numAmount
+  if (sourceCurrency !== currentCurrency.value) {
+    if (sourceCurrency === 'USD' && currentCurrency.value === 'HKD') {
+      displayAmount = numAmount * exchangeRate
+    } else if (sourceCurrency === 'HKD' && currentCurrency.value === 'USD') {
+      displayAmount = numAmount / exchangeRate
+    }
+  } else if (!originalCurrency) {
+    // 沒有指定原始幣種，假設是 USD，根據當前顯示幣種轉換
+    if (currentCurrency.value === 'HKD') {
+      displayAmount = numAmount * exchangeRate
+    }
+  }
+  
   const currencySymbol = currentCurrency.value === 'HKD' ? 'HK$' : '$'
-  return `${currencySymbol}${Math.abs(numAmount).toLocaleString('en-US', { 
+  return `${currencySymbol}${Math.abs(displayAmount).toLocaleString('en-US', { 
     minimumFractionDigits: 2, 
     maximumFractionDigits: 2 
   })}`
+}
+
+// 判斷股票市場（港股或美股）
+const getMarketType = (symbol) => {
+  if (!symbol) return 'US'
+  return symbol.includes('.HK') || /^\d{4}$/.test(symbol) ? 'HK' : 'US'
+}
+
+// 獲取市場顏色
+const getMarketColor = (symbol) => {
+  const market = getMarketType(symbol)
+  return market === 'HK' 
+    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 border-blue-300 dark:border-blue-700'
+    : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
 }
 
 const goBack = () => {
@@ -89,17 +132,57 @@ onMounted(() => {
           <CardContent class="p-4">
             <div class="flex justify-between items-start">
               <div class="flex-1">
-                <div class="font-semibold text-lg mb-1">{{ item.symbol }}</div>
-                <div class="text-sm text-muted-foreground">
-                  {{ t('dashboard.quantity') }}: {{ item.quantity?.toLocaleString() || 0 }}
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="font-semibold text-lg">{{ item.symbol }}</span>
+                  <!-- 市場標籤 -->
+                  <span 
+                    :class="cn(
+                      'px-1.5 py-0.5 rounded text-[10px] font-medium border',
+                      getMarketColor(item.symbol)
+                    )"
+                  >
+                    {{ getMarketType(item.symbol) === 'HK' ? 'HK' : 'US' }}
+                  </span>
+                  <!-- 賣空標籤 -->
+                  <span 
+                    v-if="item.quantity < 0"
+                    class="px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 border border-purple-300 dark:border-purple-700"
+                  >
+                    SHORT
+                  </span>
+                </div>
+                <div 
+                  :class="[
+                    'text-sm',
+                    item.quantity < 0 ? 'text-purple-600 dark:text-purple-400 font-medium' : 'text-muted-foreground'
+                  ]"
+                >
+                  {{ t('dashboard.quantity') }}: {{ parseFloat(item.quantity || 0).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') }}
                 </div>
                 <div class="text-sm text-muted-foreground">
-                  {{ t('dashboard.avgCost') }}: {{ formatCurrency(item.avg_cost || 0) }}
+                  {{ t('dashboard.avgCost') }}: {{ formatCurrency(item.avg_cost || 0, item.currency) }}
                 </div>
               </div>
               <div class="text-right">
-                <div class="font-semibold text-lg">
-                  {{ formatCurrency(item.current_market_value || 0) }}
+                <!-- 主幣種大字 -->
+                <div 
+                  :class="[
+                    'font-semibold text-lg',
+                    item.quantity < 0 ? 'text-purple-600 dark:text-purple-400' : ''
+                  ]"
+                >
+                  {{ formatCurrency(item.current_market_value || 0, item.currency) }}
+                </div>
+                <!-- 副幣種小字（始終顯示另一個幣種的換算） -->
+                <div class="text-xs text-muted-foreground">
+                  <!-- 如果當前顯示 USD，副幣種顯示 HKD -->
+                  <span v-if="currentCurrency === 'USD'">
+                    ≈ HK${{ ((item.current_market_value || 0) * getExchangeRate()).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+                  </span>
+                  <!-- 如果當前顯示 HKD，副幣種顯示 USD -->
+                  <span v-else>
+                    ≈ ${{ ((item.current_market_value || 0) / getExchangeRate()).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+                  </span>
                 </div>
                 <div 
                   :class="[
@@ -107,7 +190,7 @@ onMounted(() => {
                     item.unrealized_pl >= 0 ? 'text-green-600' : 'text-red-600'
                   ]"
                 >
-                  {{ item.unrealized_pl >= 0 ? '+' : '' }}{{ formatCurrency(Math.abs(item.unrealized_pl || 0)) }}
+                  {{ item.unrealized_pl >= 0 ? '+' : '' }}{{ formatCurrency(Math.abs(item.unrealized_pl || 0), item.currency) }}
                 </div>
               </div>
             </div>

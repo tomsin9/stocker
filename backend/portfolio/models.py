@@ -1,5 +1,8 @@
 from django.db import models
 from django.utils import timezone
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 class Asset(models.Model):
     """
@@ -35,6 +38,7 @@ class Transaction(models.Model):
         ('WITHDRAW', 'Withdraw (出金)'), # Optional
     ]
 
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='transactions', help_text="擁有此交易的用戶")
     asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name='transactions', null=True, blank=True)
     action = models.CharField(max_length=10, choices=ACTION_CHOICES)
     date = models.DateField(default=timezone.now)
@@ -44,8 +48,18 @@ class Transaction(models.Model):
     quantity = models.DecimalField(max_digits=12, decimal_places=4, help_text="股數 (賣出為負數?) - 建議這裡存絕對值，邏輯由 action 判斷")
     fees = models.DecimalField(max_digits=10, decimal_places=2, default=0.0, help_text="手續費")
     
+    # 多幣種支持
+    currency = models.CharField(max_length=3, choices=Asset.CURRENCY_CHOICES, default='USD', help_text="交易幣種")
+    exchange_rate = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True, help_text="交易時的匯率（相對於基準幣種）")
+    
     notes = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['user', 'date']),
+            models.Index(fields=['user', 'asset']),
+        ]
 
     def __str__(self):
         return f"{self.date} - {self.action} {self.asset.symbol} x {self.quantity}"
@@ -83,14 +97,14 @@ class AccountBalance(models.Model):
         return f"Available Cash: ${self.available_cash}"
     
     @classmethod
-    def get_current_balance(cls):
+    def get_current_balance(cls, user):
         """
         取得目前的現金餘額
         注意：實際計算在 services.calculate_current_cash() 中進行
         這個方法保留用於向後兼容
         """
         from .services import calculate_current_cash
-        return calculate_current_cash()
+        return calculate_current_cash(user)
 
 
 class CashFlow(models.Model):
@@ -103,6 +117,7 @@ class CashFlow(models.Model):
         ('WITHDRAW', 'Withdraw (提取)'),
     ]
     
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='cashflows', help_text="擁有此現金流的用戶")
     amount = models.DecimalField(
         max_digits=15, 
         decimal_places=2,
@@ -113,6 +128,9 @@ class CashFlow(models.Model):
         choices=TYPE_CHOICES,
         help_text="類型：存入或提取"
     )
+    # 多幣種支持
+    currency = models.CharField(max_length=3, choices=Asset.CURRENCY_CHOICES, default='USD', help_text="現金流幣種")
+    exchange_rate = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True, help_text="交易時的匯率（相對於基準幣種）")
     date = models.DateField(
         default=timezone.now,
         help_text="日期"
@@ -126,6 +144,9 @@ class CashFlow(models.Model):
     
     class Meta:
         ordering = ['-date', '-created_at']
+        indexes = [
+            models.Index(fields=['user', 'date']),
+        ]
         verbose_name = "Cash Flow"
         verbose_name_plural = "Cash Flows"
     

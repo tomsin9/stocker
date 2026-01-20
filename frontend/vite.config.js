@@ -11,6 +11,10 @@ export default defineConfig(({ mode }) => {
     ? env.VITE_ALLOWED_HOSTS.split(',') 
     : ['localhost'];
 
+  // 可選：如果需要連接到不同的後端地址
+  // 在 .env 文件中設置：VITE_DJANGO_HOST=http://localhost:8002
+  const djangoHost = env.VITE_DJANGO_HOST || 'http://localhost:8000';
+
   return {
     plugins: [vue()],
     resolve: {
@@ -25,6 +29,15 @@ export default defineConfig(({ mode }) => {
       allowedHosts: allowedHosts,
       watch: {
         usePolling: true,
+      },
+      // Vite Proxy: 開發環境自動將 /api 請求轉發到後端
+      proxy: {
+        '/api': {
+          target: djangoHost,
+          changeOrigin: true,
+          // 可選：如果需要重寫路徑
+          // rewrite: (path) => path.replace(/^\/api/, '')
+        }
       }
     },
   }

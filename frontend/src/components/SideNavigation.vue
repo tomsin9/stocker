@@ -101,8 +101,47 @@
           </div>
         </button>
       </nav>
+
+      <div :class="cn('p-4 border-t bg-muted/20 space-y-4', isCollapsed ? 'p-3' : 'p-4')">
+
+        <div :class="cn('grid gap-1', isCollapsed ? 'grid-cols-1 justify-items-center' : 'grid-cols-2')">
+          <Button 
+            variant="ghost" 
+            :class="cn(
+              'transition-all duration-300 bg-background/50 border border-transparent hover:border-border',
+              isCollapsed ? 'h-10 w-10 rounded-full p-0' : 'h-10 rounded-xl px-0'
+              )"
+            @click="toggleTheme"
+          >
+            <Sun v-if="theme === 'light'" class="h-4 w-4" />
+            <Moon v-else class="h-4 w-4" />
+            <span v-if="!isCollapsed" class="ml-2 text-[11px]">{{ theme === 'light' ? '淺色' : '深色' }}</span>
+          </Button>
+
+          <Button 
+            variant="ghost" 
+            :class="cn(
+              'transition-all duration-300 bg-background/50 border border-transparent hover:border-border',
+              isCollapsed ? 'h-10 w-10 rounded-full p-0' : 'h-10 rounded-xl px-0'
+            )"
+            @click="toggleLocale"
+          >
+            <Globe class="h-4 w-4" />
+            <span v-if="!isCollapsed" class="ml-2 text-[11px]">{{ locale === 'zh-HK' ? '中文（香港）' : 'English' }}</span>
+          </Button>
+        </div>
+
+        <button 
+          @click="toggleCollapse"
+          class="w-full flex items-center justify-center py-2 text-muted-foreground hover:text-primary transition-colors"
+        >
+          <ChevronLeft v-if="!isCollapsed" class="h-4 w-4" />
+          <ChevronRight v-else class="h-4 w-4" />
+        </button>
+
+      </div>
   
-      <div :class="cn('p-3 border-t bg-muted/20', isCollapsed ? 'p-3 space-y-2' : 'space-y-2')">
+      <!-- <div :class="cn('p-3 border-t bg-muted/20', isCollapsed ? 'p-3 space-y-2' : 'space-y-2')">
       
         <div :class="cn('grid gap-2', isCollapsed ? 'grid-cols-2' : 'grid-cols-2')">
           <Button 
@@ -157,6 +196,6 @@
           </Button>
         </div>
 
-      </div>
+      </div> -->
     </aside>
 </template>

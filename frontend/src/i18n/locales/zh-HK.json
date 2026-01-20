@@ -6,7 +6,8 @@
     "refresh": "更新",
     "add": "新增",
     "upload": "上傳",
-    "import": "匯入"
+    "import": "匯入",
+    "actions": "操作"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -16,7 +17,6 @@
     "refreshing": "更新中...",
     "addTransaction": "新增交易",
     "importCSV": "匯入 CSV",
-    "totalMarketValue": "總市值",
     "unrealizedPL": "帳面損益",
     "realizedPL": "已實現損益",
     "totalReturn": "總回報率",
@@ -25,6 +25,10 @@
     "availableCash": "可用現金",
     "netProfit": "淨利潤",
     "totalAssets": "總資產",
+    "netLiquidity": "淨資產",
+    "netLiquidityDescription": "總市值 + 總現金（你真正擁有的錢）",
+    "grossPosition": "總部位",
+    "grossPositionDescription": "做多市值 + 做空市值的絕對值（代表你玩多大）",
     "depositFunds": "存入資金",
     "withdrawFunds": "提取資金",
     "currency": "貨幣",
@@ -37,6 +41,8 @@
     "quantity": "股數",
     "avgCost": "平均成本",
     "currentPrice": "目前市價",
+    "totalCost": "總成本",
+    "totalMarketValue": "總市值",
     "unrealizedPLShort": "帳面損益",
     "returnRate": "損益率",
     "noHoldings": "目前沒有持倉，請先匯入交易紀錄或新增交易。",
@@ -48,7 +54,7 @@
     "title": "手動新增交易",
     "description": "輸入交易詳情以新增到投資組合",
     "symbol": "股票代號",
-    "symbolPlaceholder": "例如: AAPL, TSLA, 700.HK",
+    "symbolPlaceholder": "例如: AAPL, TSLA, 0700",
     "type": "交易類型",
     "buy": "買入 (Buy)",
     "sell": "賣出 (Sell)",
@@ -58,7 +64,20 @@
     "quantityPlaceholder": "0",
     "date": "交易日期",
     "fees": "手續費 (可選)",
-    "feesPlaceholder": "0.00"
+    "feesPlaceholder": "0.00",
+    "errors": {
+      "symbolRequired": "請輸入股票代號",
+      "quantityRequired": "請輸入股數",
+      "quantityInvalid": "股數必須大於 0",
+      "priceRequired": "請輸入價格",
+      "priceInvalid": "價格必須大於 0",
+      "dateRequired": "請選擇交易日期",
+      "feesInvalid": "手續費不能為負數"
+    },
+    "confirmDelete": "確定要刪除此交易嗎？",
+    "viewTransactions": "查看交易",
+    "noTransactionsForSymbol": "此股票目前沒有交易記錄",
+    "shortSellingNote": "注意：若目前無持倉，賣出操作將被視為賣空（開空倉）。"
   },
   "cashflow": {
     "title": "現金流",
@@ -66,6 +85,8 @@
     "withdrawTitle": "提取資金",
     "depositDescription": "記錄一筆資金存入",
     "withdrawDescription": "記錄一筆資金提取",
+    "deposit": "存入",
+    "withdraw": "提取",
     "amount": "金額",
     "amountPlaceholder": "0.00",
     "type": "類型",
@@ -78,7 +99,9 @@
     "updateError": "更新股價失敗",
     "saveError": "儲存失敗",
     "importSuccess": "匯入成功！",
-    "uploadError": "上傳失敗"
+    "uploadError": "上傳失敗",
+    "deleteError": "刪除失敗",
+    "deleteSuccess": "刪除成功"
   },
   "navigation": {
     "overview": "資產總覽",
@@ -90,7 +113,39 @@
   "transactions": {
     "title": "交易紀錄",
     "description": "查看所有交易記錄",
-    "noTransactions": "目前沒有交易記錄"
+    "noTransactions": "目前沒有交易記錄",
+    "filter": {
+      "type": "類型",
+      "dateRange": "時間範圍",
+      "all": "全部",
+      "last7Days": "最近7天",
+      "last30Days": "最近30天",
+      "last90Days": "最近90天",
+      "allTime": "全部時間"
+    }
+  },
+  "assets": {
+    "title": "資產",
+    "description": "查看所有資產持倉",
+    "noAssets": "目前沒有資產"
+  },
+  "login": {
+    "title": "Stocker 系統登入",
+    "description": "請輸入您的帳號和密碼以登入系統",
+    "username": "帳號",
+    "usernamePlaceholder": "請輸入管理員帳號",
+    "password": "密碼",
+    "passwordPlaceholder": "請輸入密碼",
+    "submit": "確認登入",
+    "submitting": "登入中...",
+    "errors": {
+      "invalidCredentials": "登入失敗：帳號或密碼錯誤",
+      "badRequest": "請求格式錯誤，請檢查輸入",
+      "serverError": "伺服器錯誤，請稍後再試",
+      "networkError": "無法連接到伺服器，請檢查網路連線",
+      "unknownError": "發生錯誤：{message}",
+      "default": "登入失敗，請稍後再試"
+    }
   },
   "settings": {
     "title": "設定",
@@ -103,11 +158,8 @@
     "language": "語言",
     "languageDescription": "選擇您的偏好語言",
     "currency": "貨幣",
-    "currencyDescription": "在美元和港元之間切換"
-  },
-  "assets": {
-    "title": "資產",
-    "description": "查看所有資產持倉",
-    "noAssets": "目前沒有資產"
+    "currencyDescription": "在美元和港元之間切換",
+    "logout": "登出",
+    "logoutDescription": "登出您的帳號"
   }
 }
