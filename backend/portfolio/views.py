@@ -4,6 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
+from django.db.models import Prefetch
 from .models import Asset, Transaction, CashFlow, AccountBalance
 from .services import (
     calculate_position, 
@@ -15,7 +16,10 @@ from .services import (
     search_stocks_in_cache,
     add_stock_to_cache,
     load_stock_list_cache,
-    is_cache_valid
+    is_cache_valid,
+    update_account_balance_cache,
+    recalculate_account_balance,
+    calculate_monthly_tracking
 )
 from .serializers import (
     PortfolioSummarySerializer, 
@@ -45,9 +49,15 @@ class PortfolioDashboardView(APIView):
         usd_to_hkd_rate = get_usd_to_hkd_rate()
         
         # 獲取當前用戶有交易的所有資產（避免 N+1 查詢）
+        # 使用 Prefetch 來過濾用戶的交易，避免在 calculate_position 中再次查詢
+        user_transactions_prefetch = Prefetch(
+            'transactions',
+            queryset=Transaction.objects.filter(user=user).order_by('date', 'created_at'),
+            to_attr='user_transactions'
+        )
         user_assets = Asset.objects.filter(
             transactions__user=user
-        ).distinct().prefetch_related('transactions')
+        ).distinct().prefetch_related(user_transactions_prefetch)
         
         data = []
         
@@ -59,7 +69,9 @@ class PortfolioDashboardView(APIView):
         
         for asset in user_assets:
             # 呼叫我們的 FIFO 計算邏輯（統一轉換為 USD）
-            stats = calculate_position(asset, user, usd_to_hkd_rate)
+            # 傳入 prefetched transactions 以避免 N+1 查詢
+            prefetched_txns = getattr(asset, 'user_transactions', None)
+            stats = calculate_position(asset, user, usd_to_hkd_rate, prefetched_transactions=prefetched_txns)
             
             # 只回傳目前還有持倉的（包括負數持倉/賣空）
             # 已平倉（quantity = 0）的資產不顯示，即使有已實現損益
@@ -310,16 +322,60 @@ class CashFlowDetailView(generics.RetrieveUpdateDestroyAPIView):
 class AccountBalanceView(APIView):
     """
     取得目前的現金餘額
+    優先從 AccountBalance cache 讀取，如果不存在則 fallback 到動態計算
     權限：需要登入，只返回當前用戶的現金餘額
     """
     permission_classes = [IsAuthenticated]
     
     def get(self, request):
         user = request.user
-        current_cash = calculate_current_cash(user)
+        
+        # 嘗試從 cache 讀取
+        try:
+            balance = AccountBalance.objects.filter(user=user).first()
+            if balance:
+                # 返回 cache 中的數據
+                return Response({
+                    'available_cash': float(balance.available_cash),  # 向後兼容
+                    'cash_usd': float(balance.cash_usd),
+                    'cash_hkd': float(balance.cash_hkd),
+                    'total_in_base': float(balance.total_in_base),
+                    'last_updated': balance.last_updated.isoformat() if balance.last_updated else None
+                })
+        except Exception as e:
+            # 如果讀取 cache 失敗，fallback 到動態計算
+            pass
+        
+        # Fallback: 動態計算
+        cash_data = calculate_current_cash(user, base_currency='USD')
         return Response({
-            'available_cash': float(current_cash)
+            'available_cash': float(cash_data['total_in_base']),  # 向後兼容
+            'cash_usd': float(cash_data['USD']),
+            'cash_hkd': float(cash_data['HKD']),
+            'total_in_base': float(cash_data['total_in_base']),
+            'last_updated': None
         })
+
+
+class RecalculateBalanceView(APIView):
+    """
+    強制重新計算並更新用戶的現金餘額 cache
+    權限：需要登入，只處理當前用戶的餘額
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        user = request.user
+        try:
+            result = recalculate_account_balance(user)
+            return Response({
+                'message': 'Balance recalculated successfully',
+                'balance': result
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({
+                'error': f'Failed to recalculate balance: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class TransactionListView(APIView):
     """
@@ -377,16 +433,12 @@ class TransactionListView(APIView):
             transactions = transactions.filter(asset__symbol=symbol)
             # CashFlow 不受 symbol 參數影響
         
-        # 排序
-        transactions = transactions.order_by('-date', '-created_at')
-        cashflows = cashflows.order_by('-date', '-created_at')
+        # 排序並評估查詢（避免在序列化時再次查詢）
+        transactions = list(transactions.order_by('-date', '-created_at'))
+        cashflows = list(cashflows.order_by('-date', '-created_at'))
         
         # 合併兩種記錄
-        all_records = []
-        for tx in transactions:
-            all_records.append(tx)
-        for cf in cashflows:
-            all_records.append(cf)
+        all_records = transactions + cashflows
         
         # 按日期和創建時間排序（最新的在前）
         all_records.sort(key=lambda x: (x.date, x.created_at), reverse=True)
@@ -543,17 +595,22 @@ class PortfolioHistoryView(APIView):
         # 獲取匯率
         usd_to_hkd_rate = get_usd_to_hkd_rate()
         
-        # 獲取當前用戶有交易的所有資產
+        # 獲取當前用戶有交易的所有資產（避免 N+1 查詢）
+        user_transactions_prefetch = Prefetch(
+            'transactions',
+            queryset=Transaction.objects.filter(user=user).order_by('date', 'created_at'),
+            to_attr='user_transactions'
+        )
         user_assets = Asset.objects.filter(
             transactions__user=user
-        ).distinct().prefetch_related('transactions')
+        ).distinct().prefetch_related(user_transactions_prefetch)
         
-        # 獲取所有交易記錄，按日期排序
-        all_transactions = Transaction.objects.filter(
+        # 獲取所有交易記錄，按日期排序（評估查詢以避免重複查詢）
+        all_transactions = list(Transaction.objects.filter(
             user=user
-        ).select_related('asset').order_by('date')
+        ).select_related('asset').order_by('date'))
         
-        if not all_transactions.exists():
+        if not all_transactions:
             return Response({
                 'dates': [],
                 'portfolio_values': [],
@@ -561,8 +618,8 @@ class PortfolioHistoryView(APIView):
             })
         
         # 獲取最早和最新的交易日期
-        first_transaction = all_transactions.first()
-        last_transaction = all_transactions.last()
+        first_transaction = all_transactions[0] if all_transactions else None
+        last_transaction = all_transactions[-1] if all_transactions else None
         
         # 獲取所有涉及的股票代號
         symbols = list(set([asset.symbol for asset in user_assets]))
@@ -620,7 +677,9 @@ class PortfolioHistoryView(APIView):
             for asset in user_assets:
                 # 計算該日期時的持倉（簡化：使用當前持倉）
                 # 實際應該根據該日期前的交易計算持倉
-                stats = calculate_position(asset, user, usd_to_hkd_rate)
+                # 使用 prefetched transactions 以避免 N+1 查詢
+                prefetched_txns = getattr(asset, 'user_transactions', None)
+                stats = calculate_position(asset, user, usd_to_hkd_rate, prefetched_transactions=prefetched_txns)
                 quantity = stats.get('quantity', 0)
                 
                 if quantity != 0 and asset.symbol in historical_data:
@@ -701,5 +760,104 @@ class StockHistoryView(APIView):
         except Exception as e:
             return Response(
                 {"error": f"Failed to fetch history for {symbol}: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class MonthlyTrackingView(APIView):
+    """
+    獲取月份追蹤資料
+    權限：需要登入，只返回當前用戶的數據
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        """
+        GET /api/monthly-tracking/?year=2025
+        返回指定年份的每月交易統計數據
+        """
+        user = request.user
+        
+        # 獲取年份參數，預設為當前年份
+        try:
+            year = int(request.query_params.get('year', timezone.now().year))
+        except (ValueError, TypeError):
+            year = timezone.now().year
+        
+        # 計算月度追蹤數據
+        try:
+            result = calculate_monthly_tracking(user, year)
+            
+            # 轉換為可序列化的格式
+            months_data = []
+            for month in result['months']:
+                months_data.append({
+                    'month': month['month'],
+                    'month_name': month['month_name'],
+                    'avg_profit': float(month['avg_profit']),
+                    'avg_profit_percent': float(month['avg_profit_percent']),
+                    'avg_loss': float(month['avg_loss']),
+                    'avg_loss_percent': float(month['avg_loss_percent']),
+                    'win_rate': float(month['win_rate']),
+                    'total_trades': month['total_trades'],
+                    'max_profit': float(month['max_profit']),
+                    'max_profit_percent': float(month['max_profit_percent']),
+                    'max_loss': float(month['max_loss']),
+                    'max_loss_percent': float(month['max_loss_percent']),
+                    'avg_holding_days_success': float(month['avg_holding_days_success']) if month['avg_holding_days_success'] is not None else None,
+                    'avg_holding_days_fail': float(month['avg_holding_days_fail']) if month['avg_holding_days_fail'] is not None else None,
+                    'profit': float(month['profit'])
+                })
+            
+            return Response({
+                'year': result['year'],
+                'months': months_data,
+                'summary': {
+                    'starting_capital': float(result['summary']['starting_capital']),
+                    'total_profit': float(result['summary']['total_profit']),
+                    'total_profit_percent': float(result['summary']['total_profit_percent']),
+                    'unrealized_profit': float(result['summary'].get('unrealized_profit', 0.0)),
+                    'unrealized_profit_percent': float(result['summary'].get('unrealized_profit_percent', 0.0))
+                }
+            })
+        except Exception as e:
+            return Response(
+                {"error": f"Failed to calculate monthly tracking: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class MonthlyTrackingYearsView(APIView):
+    """
+    獲取用戶有交易或現金流記錄的年份列表
+    權限：需要登入，只返回當前用戶的數據
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        """
+        GET /api/monthly-tracking-years/
+        返回用戶有交易或現金流記錄的年份列表（降序排列）
+        """
+        user = request.user
+        
+        try:
+            # 獲取所有有交易的年份
+            transaction_years = Transaction.objects.filter(
+                user=user
+            ).values_list('date__year', flat=True).distinct()
+            
+            # 獲取所有有現金流的年份
+            cashflow_years = CashFlow.objects.filter(
+                user=user
+            ).values_list('date__year', flat=True).distinct()
+            
+            # 合併並去重，然後排序（降序）
+            all_years = sorted(set(list(transaction_years) + list(cashflow_years)), reverse=True)
+            
+            return Response({
+                'years': all_years
+            })
+        except Exception as e:
+            return Response(
+                {"error": f"Failed to fetch available years: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

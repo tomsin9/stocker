@@ -76,23 +76,62 @@ class Transaction(models.Model):
 
 class AccountBalance(models.Model):
     """
-    記錄目前的可用現金餘額
-    這個模型只會有一筆記錄，代表當前的現金餘額
+    記錄用戶的可用現金餘額（作為 cache）
+    每個用戶只有一條記錄，用於提升查詢性能
+    實際的單一真實來源是動態計算（services.calculate_current_cash）
     """
+    user = models.ForeignKey(
+        User, 
+        on_delete=models.CASCADE, 
+        related_name='account_balance',
+        unique=True,
+        help_text="擁有此餘額的用戶"
+    )
+    
+    # 多幣種現金餘額
+    cash_usd = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2, 
+        default=0.0,
+        help_text="USD 現金餘額"
+    )
+    cash_hkd = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2, 
+        default=0.0,
+        help_text="HKD 現金餘額"
+    )
+    total_in_base = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2, 
+        default=0.0,
+        help_text="以基準幣種（USD）計算的總額"
+    )
+    
+    # 向後兼容字段（deprecated，保留用於遷移期間）
     available_cash = models.DecimalField(
         max_digits=15, 
         decimal_places=2, 
         default=0.0,
-        help_text="目前可用現金"
+        help_text="目前可用現金（已棄用，使用 total_in_base）"
     )
+    
     last_updated = models.DateTimeField(auto_now=True)
     
     class Meta:
         verbose_name = "Account Balance"
-        verbose_name_plural = "Account Balance"
+        verbose_name_plural = "Account Balances"
     
     def __str__(self):
-        return f"Available Cash: ${self.available_cash}"
+        return f"{self.user.username}: USD ${self.cash_usd}, HKD ${self.cash_hkd}"
+    
+    @classmethod
+    def get_or_create_balance(cls, user):
+        """
+        獲取或創建用戶的餘額記錄
+        返回: (AccountBalance instance, created: bool)
+        """
+        return cls.objects.get_or_create(user=user)
     
     @classmethod
     def get_current_balance(cls, user):

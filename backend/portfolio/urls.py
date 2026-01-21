@@ -7,13 +7,16 @@ from .views import (
     CashFlowListCreateView,
     CashFlowDetailView,
     AccountBalanceView,
+    RecalculateBalanceView,
     TransactionListView,
     TransactionDetailView,
     ValidateSymbolView,
     SearchStocksView,
     StockListCacheView,
     PortfolioHistoryView,
-    StockHistoryView
+    StockHistoryView,
+    MonthlyTrackingView,
+    MonthlyTrackingYearsView
 )
 
 urlpatterns = [
@@ -26,9 +29,12 @@ urlpatterns = [
     path('cashflow/', CashFlowListCreateView.as_view(), name='cashflow-list-create'),
     path('cashflow/<int:pk>/', CashFlowDetailView.as_view(), name='cashflow-detail'),
     path('account-balance/', AccountBalanceView.as_view(), name='account-balance'),
+    path('recalculate-balance/', RecalculateBalanceView.as_view(), name='recalculate-balance'),
     path('validate-symbol/', ValidateSymbolView.as_view(), name='validate-symbol'),
     path('search-stocks/', SearchStocksView.as_view(), name='search-stocks'),
     path('stock-list-cache/', StockListCacheView.as_view(), name='stock-list-cache'),
     path('portfolio-history/', PortfolioHistoryView.as_view(), name='portfolio-history'),
     path('stock-history/', StockHistoryView.as_view(), name='stock-history'),
+    path('monthly-tracking/', MonthlyTrackingView.as_view(), name='monthly-tracking'),
+    path('monthly-tracking-years/', MonthlyTrackingYearsView.as_view(), name='monthly-tracking-years'),
 ]

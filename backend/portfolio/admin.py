@@ -16,12 +16,26 @@ class TransactionAdmin(admin.ModelAdmin):
 
 @admin.register(CashFlow)
 class CashFlowAdmin(admin.ModelAdmin):
-    list_display = ('date', 'amount', 'type')
-    list_filter = ('type',)
+    list_display = ('date', 'user', 'currency', 'amount', 'type')
+    list_filter = ('type', 'user', 'currency')
     date_hierarchy = 'date'
 
 @admin.register(AccountBalance)
 class AccountBalanceAdmin(admin.ModelAdmin):
-    list_display = ('available_cash', 'last_updated')
-    search_fields = ('available_cash',)
+    list_display = ('user', 'cash_usd', 'cash_hkd', 'total_in_base', 'last_updated')
+    list_filter = ('last_updated',)
+    search_fields = ('user__username', 'user__email')
     date_hierarchy = 'last_updated'
+    readonly_fields = ('last_updated',)
+    
+    fieldsets = (
+        ('User', {
+            'fields': ('user',)
+        }),
+        ('Cash Balances', {
+            'fields': ('cash_usd', 'cash_hkd', 'total_in_base', 'available_cash')
+        }),
+        ('Metadata', {
+            'fields': ('last_updated',)
+        }),
+    )

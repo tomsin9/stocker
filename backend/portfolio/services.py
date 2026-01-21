@@ -1,14 +1,14 @@
 # backend/portfolio/services.py
-from decimal import Decimal
-from django.db import models
-from django.conf import settings
-from .models import Transaction, CashFlow, AccountBalance, Asset
+import json, os, time
 import yfinance as yf
-import json
-import os
-from pathlib import Path
+
 from datetime import datetime, timedelta
-import time
+from decimal import Decimal
+from django.conf import settings
+from django.db import models
+from pathlib import Path
+
+from .models import Transaction, CashFlow, AccountBalance, Asset
 
 # 匯率緩存（模塊級變量）
 _exchange_rate_cache = {
@@ -67,7 +67,8 @@ def get_total_invested_capital(user):
     total_withdraws_usd = Decimal('0.00')
     
     # 計算所有存款（轉換為 USD）
-    deposits = CashFlow.objects.filter(user=user, type='DEPOSIT')
+    # 評估查詢以避免重複查詢
+    deposits = list(CashFlow.objects.filter(user=user, type='DEPOSIT'))
     for deposit in deposits:
         if deposit.currency == 'USD':
             total_deposits_usd += deposit.amount
@@ -102,7 +103,8 @@ def calculate_current_cash(user, base_currency='USD'):
     cash_hkd = Decimal('0.00')
     
     # 1. 計算現金流（按幣種分開計算）
-    cashflows = CashFlow.objects.filter(user=user)
+    # 評估查詢以避免重複查詢
+    cashflows = list(CashFlow.objects.filter(user=user))
     for cf in cashflows:
         amount = cf.amount
         if cf.type == 'DEPOSIT':
@@ -148,6 +150,77 @@ def calculate_current_cash(user, base_currency='USD'):
         'HKD': cash_hkd,
         'total_in_base': total_in_base
     }
+
+def update_account_balance_cache(user):
+    """
+    更新用戶的現金餘額 cache
+    調用 calculate_current_cash() 獲取最新餘額，然後更新 AccountBalance 模型
+    使用 update_or_create 確保原子性操作，避免 race condition
+    """
+    from django.db import transaction as db_transaction
+    
+    try:
+        # 計算最新餘額（Single Source of Truth）
+        cash_data = calculate_current_cash(user, base_currency='USD')
+        
+        # 使用 database transaction 確保原子性
+        with db_transaction.atomic():
+            # 使用 select_for_update 避免併發問題
+            balance, created = AccountBalance.objects.select_for_update().get_or_create(
+                user=user,
+                defaults={
+                    'cash_usd': cash_data['USD'],
+                    'cash_hkd': cash_data['HKD'],
+                    'total_in_base': cash_data['total_in_base'],
+                    'available_cash': cash_data['total_in_base'],  # 向後兼容
+                }
+            )
+            
+            if not created:
+                # 更新現有記錄
+                balance.cash_usd = cash_data['USD']
+                balance.cash_hkd = cash_data['HKD']
+                balance.total_in_base = cash_data['total_in_base']
+                balance.available_cash = cash_data['total_in_base']  # 向後兼容
+                balance.save(update_fields=['cash_usd', 'cash_hkd', 'total_in_base', 'available_cash', 'last_updated'])
+        
+        return balance
+    except Exception as e:
+        # 記錄錯誤但不拋出異常，避免影響主業務流程
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Failed to update account balance cache for user {user.id}: {e}", exc_info=True)
+        raise
+
+
+def recalculate_account_balance(user):
+    """
+    強制重新計算並更新用戶的現金餘額 cache
+    用於 fallback 和數據修復場景
+    返回更新後的餘額數據
+    """
+    try:
+        balance = update_account_balance_cache(user)
+        return {
+            'USD': float(balance.cash_usd),
+            'HKD': float(balance.cash_hkd),
+            'total_in_base': float(balance.total_in_base),
+            'available_cash': float(balance.available_cash),  # 向後兼容
+            'last_updated': balance.last_updated.isoformat() if balance.last_updated else None
+        }
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Failed to recalculate account balance for user {user.id}: {e}", exc_info=True)
+        # 如果更新失敗，返回動態計算的結果
+        cash_data = calculate_current_cash(user, base_currency='USD')
+        return {
+            'USD': float(cash_data['USD']),
+            'HKD': float(cash_data['HKD']),
+            'total_in_base': float(cash_data['total_in_base']),
+            'available_cash': float(cash_data['total_in_base']),  # 向後兼容
+            'last_updated': None
+        }
 
 def detect_asset_currency(symbol):
     """
@@ -415,7 +488,7 @@ def convert_from_usd(amount, to_currency, usd_to_hkd_rate):
         return amount * usd_to_hkd_rate
     return amount
 
-def calculate_position(asset, user, usd_to_hkd_rate=None):
+def calculate_position(asset, user, usd_to_hkd_rate=None, prefetched_transactions=None):
     """
     使用 FIFO (先進先出) 邏輯計算某檔股票的：
     1. 當前持倉數量（支援負數，表示賣空）
@@ -424,6 +497,12 @@ def calculate_position(asset, user, usd_to_hkd_rate=None):
     
     所有計算結果統一轉換為 USD
     支援賣空：允許負數持倉
+    
+    Args:
+        asset: Asset 對象
+        user: User 對象
+        usd_to_hkd_rate: USD 到 HKD 的匯率（可選）
+        prefetched_transactions: 預先獲取的交易列表（可選，用於避免 N+1 查詢）
     """
     if usd_to_hkd_rate is None:
         usd_to_hkd_rate = get_usd_to_hkd_rate()
@@ -432,8 +511,15 @@ def calculate_position(asset, user, usd_to_hkd_rate=None):
     asset_currency = asset.currency or detect_asset_currency(asset.symbol)
     
     # 拿出這隻股票的所有交易，按日期排序 (最舊的在前面 -> FIFO)
-    # 只獲取當前用戶的交易
-    transactions = asset.transactions.filter(user=user).order_by('date', 'created_at')
+    # 優先使用 prefetched_transactions，避免 N+1 查詢
+    if prefetched_transactions is not None:
+        transactions = prefetched_transactions
+    elif hasattr(asset, 'user_transactions'):
+        # 使用 Prefetch 的 to_attr 結果
+        transactions = asset.user_transactions
+    else:
+        # Fallback: 如果沒有 prefetch，才進行查詢（會導致 N+1）
+        transactions = asset.transactions.filter(user=user).order_by('date', 'created_at')
     
     inventory = []  # 倉庫：存這檔股票目前的多頭持倉 [(price, quantity), ...]
     short_inventory = []  # 賣空倉庫：存這檔股票目前的空頭持倉 [(price, quantity), ...]
@@ -603,4 +689,501 @@ def calculate_position(asset, user, usd_to_hkd_rate=None):
         'unrealized_pl': unrealized_pl_usd,  # USD
         'long_market_value': long_market_value_usd,  # USD（多頭市值，正數）
         'short_market_value': abs(short_market_value_usd)  # USD（空頭市值絕對值，正數）
+    }
+
+def calculate_monthly_tracking(user, year):
+    """
+    計算指定年份的每月交易統計數據
+    返回格式：
+    {
+        'year': int,
+        'months': [
+            {
+                'month': int (1-12),
+                'month_name': str (JAN-DEC),
+                'avg_profit': Decimal,
+                'avg_loss': Decimal,
+                'win_rate': Decimal,
+                'total_trades': int,
+                'max_profit': Decimal,
+                'max_loss': Decimal,
+                'avg_holding_days_success': Decimal,
+                'avg_holding_days_fail': Decimal,
+                'profit': Decimal
+            },
+            ...
+        ],
+        'summary': {
+            'starting_capital': Decimal,
+            'total_profit': Decimal,
+            'total_profit_percent': Decimal
+        }
+    }
+    """
+    from django.utils import timezone
+    from collections import defaultdict
+    
+    usd_to_hkd_rate = get_usd_to_hkd_rate()
+    
+    # 獲取該年份的所有交易，按日期排序
+    start_date = timezone.datetime(year, 1, 1).date()
+    end_date = timezone.datetime(year, 12, 31).date()
+    
+    # 評估查詢以避免重複查詢
+    all_transactions = list(Transaction.objects.filter(
+        user=user,
+        date__gte=start_date,
+        date__lte=end_date
+    ).select_related('asset').order_by('date', 'created_at'))
+    
+    # 計算起始資金（該年1月1日0:00時的 portfolio 資產總值 = 現金 + 持倉市值）
+    
+    # 1. 計算該年1月1日之前的現金餘額
+    cash_usd = Decimal('0.00')
+    cash_hkd = Decimal('0.00')
+    
+    # 現金流（該年1月1日之前）
+    # 評估查詢以避免重複查詢
+    cashflows_before_start = list(CashFlow.objects.filter(
+        user=user,
+        date__lt=start_date  # 使用 < 而不是 <=，確保是1月1日0:00之前
+    ))
+    for cf in cashflows_before_start:
+        if cf.currency == 'USD':
+            if cf.type == 'DEPOSIT':
+                cash_usd += cf.amount
+            else:  # WITHDRAW
+                cash_usd -= cf.amount
+        elif cf.currency == 'HKD':
+            if cf.type == 'DEPOSIT':
+                cash_hkd += cf.amount
+            else:  # WITHDRAW
+                cash_hkd -= cf.amount
+    
+    # 交易影響（該年1月1日之前）
+    transactions_before_start = Transaction.objects.filter(
+        user=user,
+        date__lt=start_date
+    ).select_related('asset')
+    for txn in transactions_before_start:
+        if not txn.asset:
+            continue
+        txn_currency = txn.currency or txn.asset.currency or 'USD'
+        amount = Decimal('0.00')
+        if txn.action == 'BUY':
+            amount = -(txn.price * txn.quantity + txn.fees)
+        elif txn.action == 'SELL':
+            amount = txn.price * txn.quantity - txn.fees
+        elif txn.action == 'DIVIDEND':
+            amount = txn.price * txn.quantity
+        
+        if txn_currency == 'USD':
+            cash_usd += amount
+        elif txn_currency == 'HKD':
+            cash_hkd += amount
+    
+    cash_before_start = cash_usd + (cash_hkd / usd_to_hkd_rate)
+    
+    # 2. 計算該年1月1日之前的持倉市值
+    # 獲取所有有交易的資產（包括該年之前的交易），並 prefetch 該年之前的交易
+    from django.db.models import Prefetch
+    transactions_before_prefetch = Prefetch(
+        'transactions',
+        queryset=Transaction.objects.filter(
+            user=user,
+            date__lt=start_date
+        ).order_by('date', 'created_at'),
+        to_attr='transactions_before_start'
+    )
+    all_user_assets = Asset.objects.filter(
+        transactions__user=user
+    ).distinct().prefetch_related(transactions_before_prefetch)
+    
+    portfolio_value_before_start = Decimal('0.00')
+    
+    for asset in all_user_assets:
+        # 計算該年1月1日之前的持倉（使用 FIFO）
+        asset_currency = asset.currency or detect_asset_currency(asset.symbol)
+        # 使用 prefetched transactions，避免 N+1 查詢
+        asset_transactions_before = getattr(asset, 'transactions_before_start', [])
+        
+        inventory = []
+        short_inventory = []
+        
+        for t in asset_transactions_before:
+            if t.action == 'BUY':
+                qty_to_buy = t.quantity
+                # 先平倉賣空
+                while qty_to_buy > 0 and short_inventory:
+                    batch = short_inventory[0]
+                    if batch['quantity'] > qty_to_buy:
+                        batch['quantity'] -= qty_to_buy
+                        qty_to_buy = 0
+                    else:
+                        qty_to_buy -= batch['quantity']
+                        short_inventory.pop(0)
+                # 剩餘的入庫
+                if qty_to_buy > 0:
+                    inventory.append({
+                        'price': t.price,
+                        'quantity': qty_to_buy,
+                        'date': t.date
+                    })
+            elif t.action == 'SELL':
+                qty_to_sell = t.quantity
+                while qty_to_sell > 0:
+                    if not inventory:
+                        short_inventory.append({
+                            'price': t.price,
+                            'quantity': qty_to_sell,
+                            'date': t.date
+                        })
+                        qty_to_sell = 0
+                        break
+                    batch = inventory[0]
+                    if batch['quantity'] > qty_to_sell:
+                        batch['quantity'] -= qty_to_sell
+                        qty_to_sell = 0
+                    else:
+                        qty_to_sell -= batch['quantity']
+                        inventory.pop(0)
+        
+        # 計算持倉市值（使用當前價格）
+        long_quantity = sum(item['quantity'] for item in inventory)
+        short_quantity = sum(item['quantity'] for item in short_inventory)
+        net_quantity = long_quantity - short_quantity
+        
+        if net_quantity != 0:
+            # 使用當前價格計算市值（如果沒有歷史價格數據）
+            price = asset.current_price if asset.current_price > 0 else Decimal('0.00')
+            market_value = net_quantity * price
+            market_value_usd = convert_to_usd(market_value, asset_currency, usd_to_hkd_rate)
+            portfolio_value_before_start += market_value_usd
+    
+    # 3. 起始資金 = 現金 + 持倉市值
+    starting_capital = cash_before_start + portfolio_value_before_start
+    
+    # 按資產分組處理交易
+    # 使用 prefetch 來優化查詢，避免 N+1
+    year_transactions_prefetch = Prefetch(
+        'transactions',
+        queryset=Transaction.objects.filter(
+            user=user,
+            date__gte=start_date,
+            date__lte=end_date
+        ).select_related('asset').order_by('date', 'created_at'),
+        to_attr='year_transactions'
+    )
+    assets = Asset.objects.filter(
+        transactions__user=user,
+        transactions__date__gte=start_date,
+        transactions__date__lte=end_date
+    ).distinct().prefetch_related(year_transactions_prefetch)
+    
+    # 存儲每月的交易結果
+    monthly_trades = defaultdict(list)  # {month: [{'profit': Decimal, 'holding_days': int, ...}, ...]}
+    
+    # 存儲每個資產處理完交易後的持倉狀態，用於計算未實現損益
+    asset_inventories = {}  # {asset_id: {'inventory': [...], 'short_inventory': [...], 'currency': '...'}}
+    
+    for asset in assets:
+        asset_currency = asset.currency or detect_asset_currency(asset.symbol)
+        # 使用 prefetched transactions，避免 N+1 查詢
+        asset_transactions = getattr(asset, 'year_transactions', [])
+        
+        inventory = []  # 多頭持倉 [(price, quantity, date), ...]
+        short_inventory = []  # 空頭持倉 [(price, quantity, date), ...]
+        
+        for t in asset_transactions:
+            if t.action == 'BUY':
+                qty_to_buy = t.quantity
+                total_gain = Decimal('0.00')
+                
+                # 先平倉賣空
+                while qty_to_buy > 0 and short_inventory:
+                    batch = short_inventory[0]
+                    if batch['quantity'] > qty_to_buy:
+                        gain = (batch['price'] - t.price) * qty_to_buy
+                        gain_usd = convert_to_usd(gain, asset_currency, usd_to_hkd_rate)
+                        total_gain += gain_usd
+                        
+                        # 記錄這筆平倉交易
+                        holding_days = (t.date - batch['date']).days
+                        monthly_trades[t.date.month].append({
+                            'profit': gain_usd,
+                            'holding_days': holding_days,
+                            'fees': convert_to_usd(t.fees, asset_currency, usd_to_hkd_rate)
+                        })
+                        
+                        batch['quantity'] -= qty_to_buy
+                        qty_to_buy = 0
+                    else:
+                        closed_qty = batch['quantity']
+                        gain = (batch['price'] - t.price) * closed_qty
+                        gain_usd = convert_to_usd(gain, asset_currency, usd_to_hkd_rate)
+                        total_gain += gain_usd
+                        
+                        holding_days = (t.date - batch['date']).days
+                        monthly_trades[t.date.month].append({
+                            'profit': gain_usd,
+                            'holding_days': holding_days,
+                            'fees': convert_to_usd(t.fees, asset_currency, usd_to_hkd_rate)
+                        })
+                        
+                        qty_to_buy -= closed_qty
+                        short_inventory.pop(0)
+                
+                # 剩餘的入庫
+                if qty_to_buy > 0:
+                    inventory.append({
+                        'price': t.price,
+                        'quantity': qty_to_buy,
+                        'date': t.date
+                    })
+                
+                # 扣除手續費
+                fees_usd = convert_to_usd(t.fees, asset_currency, usd_to_hkd_rate)
+                if fees_usd > 0 and monthly_trades[t.date.month]:
+                    monthly_trades[t.date.month][-1]['profit'] -= fees_usd
+            
+            elif t.action == 'SELL':
+                qty_to_sell = t.quantity
+                
+                while qty_to_sell > 0:
+                    if not inventory:
+                        # 開賣空倉位
+                        short_inventory.append({
+                            'price': t.price,
+                            'quantity': qty_to_sell,
+                            'date': t.date
+                        })
+                        # 賣空開倉：獲利 = 賣出價格 * 數量（成本為0）
+                        remaining_gain = qty_to_sell * t.price
+                        remaining_gain_usd = convert_to_usd(remaining_gain, asset_currency, usd_to_hkd_rate)
+                        
+                        # 記錄賣空開倉（持有天數為0）
+                        # 賣空開倉成本為0，所以百分比為無限大，設為特殊值或0
+                        monthly_trades[t.date.month].append({
+                            'profit': remaining_gain_usd,
+                            'profit_percent': Decimal('0.00'),  # 賣空開倉時成本為0，無法計算百分比
+                            'holding_days': 0,
+                            'fees': Decimal('0.00')
+                        })
+                        
+                        qty_to_sell = 0
+                        break
+                    
+                    batch = inventory[0]
+                    
+                    if batch['quantity'] > qty_to_sell:
+                        gain = (t.price - batch['price']) * qty_to_sell
+                        gain_usd = convert_to_usd(gain, asset_currency, usd_to_hkd_rate)
+                        holding_days = (t.date - batch['date']).days
+                        cost_basis = batch['price'] * qty_to_sell
+                        cost_basis_usd = convert_to_usd(cost_basis, asset_currency, usd_to_hkd_rate)
+                        profit_percent = (gain_usd / cost_basis_usd * Decimal('100.00')) if cost_basis_usd > 0 else Decimal('0.00')
+                        
+                        monthly_trades[t.date.month].append({
+                            'profit': gain_usd,
+                            'profit_percent': profit_percent,
+                            'holding_days': holding_days,
+                            'fees': Decimal('0.00')
+                        })
+                        
+                        batch['quantity'] -= qty_to_sell
+                        qty_to_sell = 0
+                    else:
+                        sold_qty = batch['quantity']
+                        gain = (t.price - batch['price']) * sold_qty
+                        gain_usd = convert_to_usd(gain, asset_currency, usd_to_hkd_rate)
+                        holding_days = (t.date - batch['date']).days
+                        cost_basis = batch['price'] * sold_qty
+                        cost_basis_usd = convert_to_usd(cost_basis, asset_currency, usd_to_hkd_rate)
+                        profit_percent = (gain_usd / cost_basis_usd * Decimal('100.00')) if cost_basis_usd > 0 else Decimal('0.00')
+                        
+                        monthly_trades[t.date.month].append({
+                            'profit': gain_usd,
+                            'profit_percent': profit_percent,
+                            'holding_days': holding_days,
+                            'fees': Decimal('0.00')
+                        })
+                        
+                        qty_to_sell -= sold_qty
+                        inventory.pop(0)
+                
+                # 扣除賣出手續費
+                fees_usd = convert_to_usd(t.fees, asset_currency, usd_to_hkd_rate)
+                if fees_usd > 0 and monthly_trades[t.date.month]:
+                    monthly_trades[t.date.month][-1]['profit'] -= fees_usd
+        
+        # 保存該資產處理完所有交易後的持倉狀態
+        asset_inventories[asset.id] = {
+            'inventory': inventory.copy(),
+            'short_inventory': short_inventory.copy(),
+            'currency': asset_currency
+        }
+    
+    # 計算未實現損益（只在有未賣出持倉時才計算）
+    from django.utils import timezone
+    current_date = timezone.now().date()
+    total_unrealized_profit = Decimal('0.00')
+    
+    for asset in assets:
+        if asset.id not in asset_inventories:
+            continue
+        
+        asset_data = asset_inventories[asset.id]
+        inventory = asset_data['inventory']
+        short_inventory = asset_data['short_inventory']
+        asset_currency = asset_data['currency']
+        current_price = asset.current_price or Decimal('0.00')
+        
+        # 只計算未賣出的持倉（inventory 和 short_inventory 不為空）
+        if inventory:  # 多頭持倉
+            for batch in inventory:
+                unrealized_profit = (current_price - batch['price']) * batch['quantity']
+                unrealized_profit_usd = convert_to_usd(unrealized_profit, asset_currency, usd_to_hkd_rate)
+                holding_days = (current_date - batch['date']).days
+                cost_basis = batch['price'] * batch['quantity']
+                cost_basis_usd = convert_to_usd(cost_basis, asset_currency, usd_to_hkd_rate)
+                profit_percent = (unrealized_profit_usd / cost_basis_usd * Decimal('100.00')) if cost_basis_usd > 0 else Decimal('0.00')
+                
+                # 累加未實現損益總額
+                total_unrealized_profit += unrealized_profit_usd
+                
+                # 記錄到買入月份
+                monthly_trades[batch['date'].month].append({
+                    'profit': unrealized_profit_usd,
+                    'profit_percent': profit_percent,
+                    'holding_days': holding_days,
+                    'fees': Decimal('0.00')
+                })
+        
+        if short_inventory:  # 空頭持倉
+            for batch in short_inventory:
+                unrealized_profit = (batch['price'] - current_price) * batch['quantity']
+                unrealized_profit_usd = convert_to_usd(unrealized_profit, asset_currency, usd_to_hkd_rate)
+                holding_days = (current_date - batch['date']).days
+                cost_basis = batch['price'] * batch['quantity']
+                cost_basis_usd = convert_to_usd(cost_basis, asset_currency, usd_to_hkd_rate)
+                profit_percent = (unrealized_profit_usd / cost_basis_usd * Decimal('100.00')) if cost_basis_usd > 0 else Decimal('0.00')
+                
+                # 累加未實現損益總額
+                total_unrealized_profit += unrealized_profit_usd
+                
+                # 記錄到賣空月份
+                monthly_trades[batch['date'].month].append({
+                    'profit': unrealized_profit_usd,
+                    'profit_percent': profit_percent,
+                    'holding_days': holding_days,
+                    'fees': Decimal('0.00')
+                })
+    
+    # 計算每月統計
+    # 注意：月份名稱由前端根據用戶語言設置進行翻譯
+    # 這裡保留英文縮寫作為向後兼容的默認值
+    month_names = ['', 'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
+    months_data = []
+    total_profit = Decimal('0.00')
+    
+    for month in range(1, 13):
+        trades = monthly_trades[month]
+        
+        if not trades:
+            months_data.append({
+                'month': month,
+                'month_name': month_names[month],
+                'avg_profit': Decimal('0.00'),
+                'avg_profit_percent': Decimal('0.00'),
+                'avg_loss': Decimal('0.00'),
+                'avg_loss_percent': Decimal('0.00'),
+                'win_rate': Decimal('0.00'),
+                'total_trades': 0,
+                'max_profit': Decimal('0.00'),
+                'max_profit_percent': Decimal('0.00'),
+                'max_loss': Decimal('0.00'),
+                'max_loss_percent': Decimal('0.00'),
+                'avg_holding_days_success': None,
+                'avg_holding_days_fail': None,
+                'profit': Decimal('0.00')
+            })
+            continue
+        
+        # 分離獲利和虧損交易
+        profitable_trades = [t for t in trades if t['profit'] > 0]
+        losing_trades = [t for t in trades if t['profit'] <= 0]
+        
+        # 計算統計
+        total_trades = len(trades)
+        win_count = len(profitable_trades)
+        win_rate = (Decimal(str(win_count)) / Decimal(str(total_trades)) * Decimal('100.00')) if total_trades > 0 else Decimal('0.00')
+        
+        avg_profit = sum(t['profit'] for t in profitable_trades) / len(profitable_trades) if profitable_trades else Decimal('0.00')
+        avg_loss = sum(t['profit'] for t in losing_trades) / len(losing_trades) if losing_trades else Decimal('0.00')
+        
+        # 計算平均百分比
+        avg_profit_percent = sum(t.get('profit_percent', Decimal('0.00')) for t in profitable_trades) / len(profitable_trades) if profitable_trades else Decimal('0.00')
+        avg_loss_percent = sum(t.get('profit_percent', Decimal('0.00')) for t in losing_trades) / len(losing_trades) if losing_trades else Decimal('0.00')
+        
+        # 最大獲利：從所有交易中找最大值
+        max_profit = max((t['profit'] for t in trades), default=Decimal('0.00'))
+        
+        # 最大虧損：只從虧損交易中找最小值（最大的虧損）
+        losing_profits = [t['profit'] for t in trades if t['profit'] < 0]
+        max_loss = min(losing_profits, default=Decimal('0.00')) if losing_profits else Decimal('0.00')
+        
+        # 找到最大獲利和最大虧損對應的百分比
+        max_profit_trade = next((t for t in trades if t['profit'] == max_profit), None)
+        max_loss_trade = next((t for t in trades if t['profit'] == max_loss), None) if max_loss < 0 else None
+        max_profit_percent = max_profit_trade.get('profit_percent', Decimal('0.00')) if max_profit_trade else Decimal('0.00')
+        max_loss_percent = max_loss_trade.get('profit_percent', Decimal('0.00')) if max_loss_trade else Decimal('0.00')
+        
+        profit = sum(t['profit'] for t in trades)
+        total_profit += profit
+        
+        # 計算平均持有天數
+        success_holding_days = [t['holding_days'] for t in profitable_trades if t['holding_days'] > 0]
+        fail_holding_days = [t['holding_days'] for t in losing_trades if t['holding_days'] > 0]
+        
+        avg_holding_days_success = sum(success_holding_days) / len(success_holding_days) if success_holding_days else None
+        avg_holding_days_fail = sum(fail_holding_days) / len(fail_holding_days) if fail_holding_days else None
+        
+        months_data.append({
+            'month': month,
+            'month_name': month_names[month],
+            'avg_profit': avg_profit,
+            'avg_profit_percent': avg_profit_percent,
+            'avg_loss': avg_loss,
+            'avg_loss_percent': avg_loss_percent,
+            'win_rate': win_rate,
+            'total_trades': total_trades,
+            'max_profit': max_profit,
+            'max_profit_percent': max_profit_percent,
+            'max_loss': max_loss,
+            'max_loss_percent': max_loss_percent,
+            'avg_holding_days_success': avg_holding_days_success,
+            'avg_holding_days_fail': avg_holding_days_fail,
+            'profit': profit
+        })
+    
+    # 計算總獲利百分比
+    total_profit_percent = Decimal('0.00')
+    if starting_capital > 0:
+        total_profit_percent = (total_profit / starting_capital) * Decimal('100.00')
+    
+    # 計算未實現損益百分比
+    total_unrealized_profit_percent = Decimal('0.00')
+    if starting_capital > 0:
+        total_unrealized_profit_percent = (total_unrealized_profit / starting_capital) * Decimal('100.00')
+    
+    return {
+        'year': year,
+        'months': months_data,
+        'summary': {
+            'starting_capital': starting_capital,
+            'total_profit': total_profit,
+            'total_profit_percent': total_profit_percent,
+            'unrealized_profit': total_unrealized_profit,
+            'unrealized_profit_percent': total_unrealized_profit_percent
+        }
     }
