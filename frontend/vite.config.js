@@ -12,8 +12,13 @@ export default defineConfig(({ mode }) => {
     : ['localhost'];
 
   // 可選：如果需要連接到不同的後端地址
-  // 在 .env 文件中設置：VITE_DJANGO_HOST=http://localhost:8002
+  // 在 .env 文件中設置：VITE_DJANGO_HOST=http://localhost:8002 或 https://stocker.tomsinp.com
   const djangoHost = env.VITE_DJANGO_HOST || 'http://localhost:8000';
+  
+  // 判斷是否為 HTTPS
+  const isHttps = djangoHost.startsWith('https://');
+  // 可選：如果遇到 SSL 證書錯誤，在 .env 中設置 VITE_PROXY_SECURE=false
+  const proxySecure = env.VITE_PROXY_SECURE !== 'false';
 
   return {
     plugins: [vue()],
@@ -35,6 +40,7 @@ export default defineConfig(({ mode }) => {
         '/api': {
           target: djangoHost,
           changeOrigin: true,
+          secure: isHttps ? proxySecure : false, // HTTPS 後端時驗證 SSL 證書（可通過 VITE_PROXY_SECURE=false 禁用）
           // 可選：如果需要重寫路徑
           // rewrite: (path) => path.replace(/^\/api/, '')
         }

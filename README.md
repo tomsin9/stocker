@@ -72,7 +72,7 @@ A portfolio and stock tracking application built with Django REST API and Vue.js
 cd backend
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r requirements_base.txt
 python manage.py migrate
 python manage.py runserver
 ```

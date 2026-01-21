@@ -13,8 +13,8 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements_base.txt .
+RUN pip install --no-cache-dir -r requirements_base.txt
 
 # 複製程式碼 (雖然 Compose 會 mount volume，但 build 時複製一份是好習慣)
 COPY . .
