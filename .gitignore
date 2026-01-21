@@ -21,6 +21,7 @@ backend/*.log
 backend/*.csv
 backend/media
 backend/public
+backend/public/media
 backend/staticfiles
 backend/*.sqlite3
 

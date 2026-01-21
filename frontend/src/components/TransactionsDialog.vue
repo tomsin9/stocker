@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -85,8 +85,15 @@ const fetchSymbolTransactions = async (symbol) => {
 }
 
 // 打開編輯表單
-const openEditForm = (transaction) => {
+const openEditForm = async (transaction) => {
+  // 確保 transaction 有 symbol 字段
+  // 如果 transaction 沒有 symbol，使用 dialog 的 symbol prop
+  if (transaction && !transaction.symbol && props.symbol) {
+    transaction = { ...transaction, symbol: props.symbol }
+  }
   editingTransaction.value = transaction
+  // 等待下一個 tick 確保 transaction 已經設置
+  await nextTick()
   showEditSheet.value = true
 }
 

@@ -11,7 +11,9 @@ from .views import (
     TransactionDetailView,
     ValidateSymbolView,
     SearchStocksView,
-    StockListCacheView
+    StockListCacheView,
+    PortfolioHistoryView,
+    StockHistoryView
 )
 
 urlpatterns = [
@@ -27,4 +29,6 @@ urlpatterns = [
     path('validate-symbol/', ValidateSymbolView.as_view(), name='validate-symbol'),
     path('search-stocks/', SearchStocksView.as_view(), name='search-stocks'),
     path('stock-list-cache/', StockListCacheView.as_view(), name='stock-list-cache'),
+    path('portfolio-history/', PortfolioHistoryView.as_view(), name='portfolio-history'),
+    path('stock-history/', StockHistoryView.as_view(), name='stock-history'),
 ]

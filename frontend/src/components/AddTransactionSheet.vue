@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Input } from '@/components/ui/input'
@@ -288,7 +288,9 @@ const resetForm = () => {
 
 // 初始化編輯表單
 const initEditForm = () => {
-  if (!props.transaction) return
+  if (!props.transaction) {
+    return
+  }
   
   // 處理日期格式
   let dateStr = props.transaction.date
@@ -298,8 +300,15 @@ const initEditForm = () => {
     dateStr = dateStr.split('T')[0]
   }
   
+  // 確保 symbol 字段正確設置
+  // 優先順序：transaction.symbol > transaction.asset.symbol
+  let symbol = props.transaction.symbol || ''
+  if (!symbol && props.transaction.asset) {
+    symbol = props.transaction.asset.symbol || ''
+  }
+  
   newTrade.value = {
-    symbol: props.transaction.symbol || '',
+    symbol: symbol,
     action: props.transaction.action || 'BUY',
     date: dateStr,
     price: parseFloat(props.transaction.price || 0),
@@ -309,12 +318,14 @@ const initEditForm = () => {
 }
 
 // 監聽 modal 打開/關閉
-watch(() => props.open, (isOpen) => {
+watch(() => props.open, async (isOpen) => {
   if (!isOpen) {
     // Modal 關閉時清除所有錯誤和建議
     resetForm()
   } else {
     // Modal 打開時初始化表單
+    // 使用 nextTick 確保 transaction prop 已經更新
+    await nextTick()
     if (isEditMode.value && props.transaction) {
       initEditForm()
     } else {
@@ -328,7 +339,7 @@ watch(() => props.transaction, () => {
   if (props.open && isEditMode.value && props.transaction) {
     initEditForm()
   }
-}, { deep: true })
+}, { deep: true, immediate: true })
 </script>
 
 <template>

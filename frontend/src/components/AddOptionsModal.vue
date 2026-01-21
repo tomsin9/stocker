@@ -129,7 +129,7 @@ const handleImportFile = async (event) => {
         </label>
       </div>
       <SheetFooter>
-        <Button variant="outline" @click="closeAddOptions" class="w-full min-h-[44px] active:scale-95">{{ t('common.cancel') }}</Button>
+        <!-- <Button variant="outline" @click="closeAddOptions" class="w-full min-h-[44px] active:scale-95">{{ t('common.cancel') }}</Button> -->
       </SheetFooter>
     </SheetContent>
   </Sheet>

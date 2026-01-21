@@ -30,6 +30,7 @@ const handleLogout = () => {
   // 清除所有本地存儲的認證信息
   localStorage.removeItem('access_token')
   localStorage.removeItem('refresh_token')
+  localStorage.removeItem('username')
   
   // 跳轉到登入頁
   router.push('/login')
@@ -113,23 +114,6 @@ const showAboutDialog = ref(false)
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>{{ t('settings.logout') }}</CardTitle>
-            <CardDescription>{{ t('settings.logoutDescription') }}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button 
-              variant="outline" 
-              class="w-full justify-start min-h-[44px] active:scale-95 text-red-500 hover:text-red-700 hover:bg-destructive/10"
-              @click="handleLogout"
-            >
-              <LogOut class="h-4 w-4 mr-2" />
-              {{ t('settings.logout') }}
-            </Button>
-          </CardContent>
-        </Card>
-
         <!-- About & License -->
         <Card>
           <CardHeader>
@@ -144,6 +128,23 @@ const showAboutDialog = ref(false)
             >
               <Info class="h-4 w-4 mr-2" />
               {{ t('settings.viewAbout') }}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>{{ t('settings.logout') }}</CardTitle>
+            <CardDescription>{{ t('settings.logoutDescription') }}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button 
+              variant="outline" 
+              class="w-full justify-start min-h-[44px] active:scale-95 text-red-500 hover:text-red-700 hover:bg-destructive/10"
+              @click="handleLogout"
+            >
+              <LogOut class="h-4 w-4 mr-2" />
+              {{ t('settings.logout') }}
             </Button>
           </CardContent>
         </Card>

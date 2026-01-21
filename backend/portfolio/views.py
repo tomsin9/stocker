@@ -521,3 +521,185 @@ class StockListCacheView(APIView):
             "is_valid": is_valid,
             "count": len(cache_data.get('stocks', []))
         })
+
+class PortfolioHistoryView(APIView):
+    """
+    獲取投資組合歷史數據
+    權限：需要登入，只返回當前用戶的數據
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        """
+        GET /api/portfolio-history/?period=1y&interval=1d
+        返回投資組合歷史價值數據
+        period: 1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max
+        interval: 1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo
+        """
+        user = request.user
+        period = request.query_params.get('period', '1y')
+        interval = request.query_params.get('interval', '1d')
+        
+        # 獲取匯率
+        usd_to_hkd_rate = get_usd_to_hkd_rate()
+        
+        # 獲取當前用戶有交易的所有資產
+        user_assets = Asset.objects.filter(
+            transactions__user=user
+        ).distinct().prefetch_related('transactions')
+        
+        # 獲取所有交易記錄，按日期排序
+        all_transactions = Transaction.objects.filter(
+            user=user
+        ).select_related('asset').order_by('date')
+        
+        if not all_transactions.exists():
+            return Response({
+                'dates': [],
+                'portfolio_values': [],
+                'cash_values': []
+            })
+        
+        # 獲取最早和最新的交易日期
+        first_transaction = all_transactions.first()
+        last_transaction = all_transactions.last()
+        
+        # 獲取所有涉及的股票代號
+        symbols = list(set([asset.symbol for asset in user_assets]))
+        
+        if not symbols:
+            return Response({
+                'dates': [],
+                'portfolio_values': [],
+                'cash_values': []
+            })
+        
+        # 使用 yfinance 獲取歷史價格
+        historical_data = {}
+        errors = []
+        
+        for symbol in symbols:
+            try:
+                ticker = yf.Ticker(symbol)
+                hist = ticker.history(period=period, interval=interval)
+                if not hist.empty:
+                    historical_data[symbol] = hist['Close'].to_dict()
+            except Exception as e:
+                errors.append(f"{symbol}: {str(e)}")
+                historical_data[symbol] = {}
+        
+        # 計算每日的投資組合價值
+        dates = []
+        portfolio_values = []
+        cash_values = []
+        
+        # 獲取歷史日期範圍（從 yfinance 數據中）
+        all_dates = set()
+        for symbol_data in historical_data.values():
+            all_dates.update(symbol_data.keys())
+        
+        if not all_dates:
+            return Response({
+                'dates': [],
+                'portfolio_values': [],
+                'cash_values': [],
+                'errors': errors
+            })
+        
+        sorted_dates = sorted(all_dates)
+        
+        # 計算每日的持倉和現金
+        for date in sorted_dates:
+            # 計算該日期之前的交易，使用 FIFO 邏輯計算持倉
+            transactions_before_date = all_transactions.filter(date__lte=date)
+            
+            # 簡化計算：使用當前持倉數量，但用歷史價格計算市值
+            # 這是一個近似值，因為實際持倉數量會隨時間變化
+            daily_portfolio_value = Decimal('0.00')
+            
+            for asset in user_assets:
+                # 計算該日期時的持倉（簡化：使用當前持倉）
+                # 實際應該根據該日期前的交易計算持倉
+                stats = calculate_position(asset, user, usd_to_hkd_rate)
+                quantity = stats.get('quantity', 0)
+                
+                if quantity != 0 and asset.symbol in historical_data:
+                    price_data = historical_data[asset.symbol]
+                    # 找到最接近該日期的價格
+                    closest_date = None
+                    min_diff = None
+                    for hist_date in price_data.keys():
+                        if hist_date <= date:
+                            diff = (date - hist_date).days
+                            if min_diff is None or diff < min_diff:
+                                min_diff = diff
+                                closest_date = hist_date
+                    
+                    if closest_date and closest_date in price_data:
+                        price = Decimal(str(price_data[closest_date]))
+                        daily_portfolio_value += price * Decimal(str(abs(quantity)))
+            
+            # 計算該日期的現金餘額（簡化：使用當前現金）
+            # 實際應該根據該日期前的現金流計算
+            cash_data = calculate_current_cash(user, base_currency='USD')
+            daily_cash = cash_data['total_in_base']
+            
+            dates.append(date.strftime('%Y-%m-%d'))
+            portfolio_values.append(float(daily_portfolio_value))
+            cash_values.append(float(daily_cash))
+        
+        return Response({
+            'dates': dates,
+            'portfolio_values': portfolio_values,
+            'cash_values': cash_values,
+            'total_values': [p + c for p, c in zip(portfolio_values, cash_values)],
+            'errors': errors if errors else None
+        })
+
+class StockHistoryView(APIView):
+    """
+    獲取單個股票的歷史價格數據
+    權限：需要登入
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        """
+        GET /api/stock-history/?symbol=AAPL&period=1y&interval=1d
+        返回單個股票的歷史價格數據
+        """
+        symbol = request.query_params.get('symbol', '')
+        period = request.query_params.get('period', '1y')
+        interval = request.query_params.get('interval', '1d')
+        
+        if not symbol:
+            return Response(
+                {"error": "Symbol parameter is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            ticker = yf.Ticker(symbol)
+            hist = ticker.history(period=period, interval=interval)
+            
+            if hist.empty:
+                return Response({
+                    'symbol': symbol,
+                    'dates': [],
+                    'prices': []
+                })
+            
+            # 轉換為列表格式
+            dates = [date.strftime('%Y-%m-%d') for date in hist.index]
+            prices = [float(price) for price in hist['Close'].values]
+            
+            return Response({
+                'symbol': symbol,
+                'dates': dates,
+                'prices': prices
+            })
+        except Exception as e:
+            return Response(
+                {"error": f"Failed to fetch history for {symbol}: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

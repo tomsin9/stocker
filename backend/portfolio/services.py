@@ -8,23 +8,54 @@ import json
 import os
 from pathlib import Path
 from datetime import datetime, timedelta
+import time
+
+# 匯率緩存（模塊級變量）
+_exchange_rate_cache = {
+    'rate': None,
+    'timestamp': None,
+    'cache_duration': 6400  # 緩存 2 小時（6400 秒）
+}
 
 def get_usd_to_hkd_rate():
     """
-    獲取 USD 到 HKD 的匯率
+    獲取 USD 到 HKD 的匯率（帶緩存）
     使用 yfinance 獲取 HKD=X 匯率，如果失敗則使用固定匯率 7.8 作為 fallback
+    緩存時間：1 小時，避免頻繁請求導致 rate limiting
     """
+    global _exchange_rate_cache
+    
+    current_time = time.time()
+    
+    # 檢查緩存是否有效
+    if (_exchange_rate_cache['rate'] is not None and 
+        _exchange_rate_cache['timestamp'] is not None and
+        (current_time - _exchange_rate_cache['timestamp']) < _exchange_rate_cache['cache_duration']):
+        return _exchange_rate_cache['rate']
+    
+    # 緩存無效或不存在，從 API 獲取
     try:
         ticker = yf.Ticker("HKD=X")
         info = ticker.info
         rate = info.get('regularMarketPrice') or info.get('currentPrice')
         if rate:
-            return Decimal(str(rate))
+            rate_decimal = Decimal(str(rate))
+            # 更新緩存
+            _exchange_rate_cache['rate'] = rate_decimal
+            _exchange_rate_cache['timestamp'] = current_time
+            return rate_decimal
     except Exception as e:
         print(f"無法獲取匯率: {e}")
+        # 如果 API 請求失敗，但緩存中有舊值，使用舊值
+        if _exchange_rate_cache['rate'] is not None:
+            print(f"使用緩存的匯率: {_exchange_rate_cache['rate']}")
+            return _exchange_rate_cache['rate']
     
     # Fallback: 使用固定匯率 7.8
-    return Decimal('7.8')
+    fallback_rate = Decimal('7.8')
+    _exchange_rate_cache['rate'] = fallback_rate
+    _exchange_rate_cache['timestamp'] = current_time
+    return fallback_rate
 
 def get_total_invested_capital(user):
     """

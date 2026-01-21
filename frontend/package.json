@@ -13,6 +13,7 @@
   "dependencies": {
     "@vueuse/core": "^14.1.0",
     "axios": "^1.13.2",
+    "chart.js": "^4.4.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-vue-next": "^0.562.0",
@@ -20,6 +21,7 @@
     "tailwind-merge": "^3.4.0",
     "tailwindcss-animate": "^1.0.7",
     "vue": "^3.5.24",
+    "vue-chartjs": "^5.2.0",
     "vue-i18n": "^9.14.5",
     "vue-router": "^4.6.4"
   },

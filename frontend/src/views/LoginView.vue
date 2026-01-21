@@ -88,6 +88,12 @@ const handleLogin = async () => {
     localStorage.setItem('access_token', response.data.access)
     localStorage.setItem('refresh_token', response.data.refresh)
     
+    // 儲存 username 到本地（用於顯示）
+    localStorage.setItem('username', form.username)
+    
+    // 觸發自定義事件，通知其他組件更新 username
+    window.dispatchEvent(new CustomEvent('user-login', { detail: { username: form.username } }))
+    
     // 登入成功後跳轉首頁
     router.push('/')
   } catch (err) {

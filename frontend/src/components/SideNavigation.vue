@@ -1,9 +1,9 @@
 <script setup>
-  import { computed, ref, onMounted } from 'vue'
+  import { computed, ref, onMounted, nextTick } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
   import { useI18n } from 'vue-i18n'
   import { Button } from '@/components/ui/button'
-  import { Home, History, Package, Settings, DollarSign, Globe, Moon, Sun, ChevronLeft, ChevronRight } from 'lucide-vue-next'
+  import { Home, History, Package, Settings, DollarSign, Globe, Moon, Sun, ChevronLeft, ChevronRight, User } from 'lucide-vue-next'
   import { cn } from '@/lib/utils'
   import { injectCurrency } from '@/composables/useCurrency'
   import { useTheme } from '@/composables/useTheme'
@@ -19,17 +19,91 @@
   const { theme, toggleTheme } = useTheme()
   
   const isCollapsed = ref(false)
+  const username = ref(null)
+  const hasAccessToken = ref(false)
+  const tooltipState = ref({ show: false, text: '', x: 0, y: 0 })
+  
+  // 檢查是否有 access token
+  const checkAccessToken = () => {
+    try {
+      hasAccessToken.value = !!localStorage.getItem('access_token')
+    } catch (error) {
+      hasAccessToken.value = false
+    }
+  }
+  
+  // 從 localStorage 獲取用戶名（只使用登入時保存的 username，不使用 user_id）
+  const loadUsername = () => {
+    try {
+      const storedUsername = localStorage.getItem('username')
+      if (storedUsername) {
+        username.value = storedUsername
+        console.log('Username loaded from localStorage:', storedUsername)
+      } else {
+        // 如果沒有保存的 username，不從 JWT token 解析（因為 JWT 中可能只有 user_id）
+        // 用戶需要重新登入以保存 username
+        username.value = null
+        console.warn('No username found in localStorage. Please login again to save username.')
+      }
+    } catch (error) {
+      console.error('Failed to access localStorage:', error)
+      username.value = null
+    }
+  }
   
   onMounted(() => {
     const savedState = localStorage.getItem('sidebarCollapsed')
     if (savedState !== null) {
       isCollapsed.value = savedState === 'true'
     }
+    // 載入用戶名
+    loadUsername()
+    
+    // 監聽 storage 事件，以便在其他標籤頁登入/登出時更新
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'username') {
+        username.value = e.newValue
+      }
+    })
+    
+    // 監聽自定義事件，當登入成功時更新 username
+    window.addEventListener('user-login', () => {
+      loadUsername()
+    })
+    
+    // 定期檢查 username（以防在其他地方更新）
+    const checkInterval = setInterval(() => {
+      const currentUsername = localStorage.getItem('username')
+      if (currentUsername !== username.value) {
+        username.value = currentUsername
+      }
+    }, 1000)
+    
+    // 清理定時器
+    return () => {
+      clearInterval(checkInterval)
+    }
   })
   
   const toggleCollapse = () => {
     isCollapsed.value = !isCollapsed.value
     localStorage.setItem('sidebarCollapsed', isCollapsed.value.toString())
+  }
+  
+  // 處理 tooltip 顯示
+  const showTooltip = (event, text) => {
+    if (!isCollapsed.value) return
+    const rect = event.currentTarget.getBoundingClientRect()
+    tooltipState.value = {
+      show: true,
+      text,
+      x: rect.right + 16, // 64px sidebar width + 16px margin
+      y: rect.top + rect.height / 2
+    }
+  }
+  
+  const hideTooltip = () => {
+    tooltipState.value.show = false
   }
   
   const navItems = computed(() => [
@@ -82,6 +156,8 @@
           v-for="item in navItems"
           :key="item.name"
           @click="handleClick(item)"
+          @mouseenter="(e) => showTooltip(e, item.label)"
+          @mouseleave="hideTooltip"
           :class="cn(
             'w-full flex items-center rounded-xl transition-all duration-200 active:scale-95 h-[36px] relative group',
             isCollapsed ? 'justify-center p-0 w-[36px]' : 'px-4 gap-4',
@@ -89,18 +165,26 @@
               ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20' 
               : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
           )"
-          :title="item.label"
         >
           <component :is="item.icon" class="h-4 w-4 flex-shrink-0" />
           <span :class="cn('font-semibold transition-all duration-300 whitespace-nowrap', isCollapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto')">
             {{ item.label }}
           </span>
-          
-          <div v-if="isCollapsed" class="absolute left-full ml-4 px-3 py-2 bg-zinc-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl">
-            {{ item.label }}
-          </div>
         </button>
       </nav>
+      
+      <!-- Fixed tooltip for navigation items -->
+      <div
+        v-if="isCollapsed && tooltipState.show"
+        class="fixed px-3 py-2 bg-zinc-900 dark:bg-zinc-800 text-white text-xs rounded-lg pointer-events-none whitespace-nowrap z-[9999] shadow-xl transition-opacity"
+        :style="{
+          left: tooltipState.x + 'px',
+          top: tooltipState.y + 'px',
+          transform: 'translateY(-50%)'
+        }"
+      >
+        {{ tooltipState.text }}
+      </div>
 
       <div :class="cn('p-4 border-t bg-muted/20 space-y-4', isCollapsed ? 'p-3' : 'p-4')">
 
@@ -108,7 +192,7 @@
           <Button 
             variant="ghost" 
             :class="cn(
-              'transition-all duration-300 bg-background/50 border border-transparent hover:border-border',
+              'transition-all duration-300 bg-background/50 border border-transparent hover:border-border relative group',
               isCollapsed ? 'h-10 w-10 rounded-full p-0' : 'h-10 rounded-xl px-0'
               )"
             @click="toggleTheme"
@@ -116,28 +200,74 @@
             <Sun v-if="theme === 'light'" class="h-4 w-4" />
             <Moon v-else class="h-4 w-4" />
             <span v-if="!isCollapsed" class="ml-2 text-[11px]">{{ theme === 'light' ? '淺色' : '深色' }}</span>
+            <div 
+              v-if="isCollapsed" 
+              class="absolute left-full ml-4 px-3 py-2 bg-zinc-900 dark:bg-zinc-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl"
+            >
+              {{ theme === 'light' ? '淺色' : '深色' }}
+            </div>
           </Button>
 
           <Button 
             variant="ghost" 
             :class="cn(
-              'transition-all duration-300 bg-background/50 border border-transparent hover:border-border',
+              'transition-all duration-300 bg-background/50 border border-transparent hover:border-border relative group',
               isCollapsed ? 'h-10 w-10 rounded-full p-0' : 'h-10 rounded-xl px-0'
             )"
             @click="toggleLocale"
           >
             <Globe class="h-4 w-4" />
             <span v-if="!isCollapsed" class="ml-2 text-[11px]">{{ locale === 'zh-HK' ? '中文（香港）' : 'English' }}</span>
+            <div 
+              v-if="isCollapsed" 
+              class="absolute left-full ml-4 px-3 py-2 bg-zinc-900 dark:bg-zinc-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl"
+            >
+              {{ locale === 'zh-HK' ? '中文（香港）' : 'English' }}
+            </div>
           </Button>
         </div>
 
-        <button 
-          @click="toggleCollapse"
-          class="w-full flex items-center justify-center py-2 text-muted-foreground hover:text-primary transition-colors"
-        >
-          <ChevronLeft v-if="!isCollapsed" class="h-4 w-4" />
-          <ChevronRight v-else class="h-4 w-4" />
-        </button>
+        <div :class="cn('grid gap-1', isCollapsed ? 'grid-cols-1 justify-items-center' : 'grid-cols-2')">
+          <button 
+            :class="cn(
+              'transition-all duration-300 bg-background/50 border border-transparent hover:border-border flex items-center justify-center',
+              isCollapsed ? 'h-10 w-10 rounded-full p-0' : 'h-10 rounded-xl px-0'
+            )"
+            @click="toggleCollapse"
+          >
+            <ChevronLeft v-if="!isCollapsed" class="h-4 w-4" />
+            <ChevronRight v-else class="h-4 w-4" />
+          </button>
+
+          <div 
+            v-if="username || hasAccessToken" 
+            :class="cn(
+              'flex items-center rounded-xl transition-all duration-300 relative group',
+              isCollapsed ? 'justify-center h-10 w-10 rounded-full p-0 hidden' : 'justify-start px-3 py-2 gap-2'
+            )"
+          >
+            <User 
+              :class="cn(
+                'flex-shrink-0 transition-all duration-300',
+                isCollapsed ? 'h-4 w-4 text-foreground' : 'h-4 w-4 text-muted-foreground'
+              )" 
+            />
+            <span 
+              :class="cn(
+                'text-sm font-medium text-foreground truncate transition-all duration-300',
+                isCollapsed ? 'opacity-0 w-0 overflow-hidden absolute' : 'opacity-100 w-auto'
+              )"
+            >
+              {{ username || 'User' }}
+            </span>
+            <div 
+              v-if="isCollapsed" 
+              class="absolute left-full ml-4 px-3 py-2 bg-zinc-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl"
+            >
+              {{ username || 'User' }}
+            </div>
+          </div>
+        </div>
 
       </div>
   
