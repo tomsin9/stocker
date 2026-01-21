@@ -16,7 +16,7 @@
     "uploading": "Uploading..."
   },
   "dashboard": {
-    "title": "Dashboard",
+    "title": "Portfolio Overview",
     "lastUpdated": "Last updated",
     "notUpdated": "Not updated yet",
     "refreshPrices": "Refresh Prices",
@@ -58,7 +58,13 @@
     "noHoldings": "No holdings yet. Please import trade records or add a transaction.",
     "fifoInventory": "FIFO Inventory",
     "selectAction": "Select an action to perform",
-    "importCSVDescription": "Import transaction records from CSV file"
+    "importCSVDescription": "Import transaction records from CSV file",
+    "summary": "Summary",
+    "portfolioOverview": "Portfolio Overview",
+    "summaryDescription": "Portfolio overview and statistics",
+    "summaryTab": "Summary",
+    "allocationTab": "Allocation",
+    "performanceTab": "Performance"
   },
   "transaction": {
     "title": "Add Transaction Manually",
@@ -122,6 +128,8 @@
     "transactions": "Transactions",
     "assets": "Assets",
     "add": "Add",
+    "tracking": "Tracking",
+    "monthlyTracking": "Monthly Tracking",
     "settings": "Settings"
   },
   "transactions": {
@@ -211,6 +219,50 @@
     "viewLicense": "View License",
     "logout": "Logout",
     "logoutDescription": "Logout from your account"
+  },
+  "monthlyTracking": {
+    "title": "Monthly Tracking Data",
+    "description": "View monthly trading statistics",
+    "year": "Year",
+    "month": "Month",
+    "avgProfit": "Avg Profit",
+    "avgLoss": "Avg Loss",
+    "winRate": "Win Rate",
+    "totalTrades": "Total Trades",
+    "maxProfit": "Max Profit",
+    "maxLoss": "Max Loss",
+    "avgHoldingDaysSuccess": "Avg Holding Days (Success)",
+    "avgHoldingDaysFail": "Avg Holding Days (Fail)",
+    "profit": "Profit",
+    "startingCapital": "Starting Capital",
+    "totalProfit": "Total Profit",
+    "totalProfitPercent": "Total Profit %",
+    "unrealizedProfit": "Unrealized Profit",
+    "unrealizedProfitPercent": "Unrealized Profit %",
+    "noData": "No data available",
+    "months": {
+      "1": "JAN",
+      "2": "FEB",
+      "3": "MAR",
+      "4": "APR",
+      "5": "MAY",
+      "6": "JUN",
+      "7": "JUL",
+      "8": "AUG",
+      "9": "SEP",
+      "10": "OCT",
+      "11": "NOV",
+      "12": "DEC"
+    },
+    "showDetails": "Show Full Details",
+    "hideDetails": "Hide Details",
+    "avg": "AVG.",
+    "gainLossChart": "Monthly Gain/Loss",
+    "gain": "Gain",
+    "loss": "Loss",
+    "trendingUp": "Trending up by {percent}% this month",
+    "trendingDown": "Trending down by {percent}% this month",
+    "noChange": "No change this month"
   },
   "errors": {
     "goBack": "Go Back",

@@ -2,8 +2,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import LoginView from '../views/LoginView.vue'
 import TransactionsView from '../views/TransactionsView.vue'
-import AssetsView from '../views/AssetsView.vue'
 import SettingsView from '../views/SettingsView.vue'
+import MonthlyTrackingView from '../views/MonthlyTrackingView.vue'
 import ErrorView from '../views/ErrorView.vue'
 import NotFoundView from '../views/NotFoundView.vue'
 import ServerErrorView from '../views/ServerErrorView.vue'
@@ -27,14 +27,14 @@ const router = createRouter({
       component: TransactionsView
     },
     {
-      path: '/assets',
-      name: 'assets',
-      component: AssetsView
-    },
-    {
       path: '/settings',
       name: 'settings',
       component: SettingsView
+    },
+    {
+      path: '/monthly-tracking',
+      name: 'monthly-tracking',
+      component: MonthlyTrackingView
     },
     {
       path: '/error/:code?',

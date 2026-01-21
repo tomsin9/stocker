@@ -3,7 +3,7 @@
   import { useRoute, useRouter } from 'vue-router'
   import { useI18n } from 'vue-i18n'
   import { Button } from '@/components/ui/button'
-  import { Home, History, Package, Settings, DollarSign, Globe, Moon, Sun, ChevronLeft, ChevronRight, User } from 'lucide-vue-next'
+  import { Home, History, Settings, DollarSign, Globe, Moon, Sun, ChevronLeft, ChevronRight, User, ChartBar } from 'lucide-vue-next'
   import { cn } from '@/lib/utils'
   import { injectCurrency } from '@/composables/useCurrency'
   import { useTheme } from '@/composables/useTheme'
@@ -38,12 +38,12 @@
       const storedUsername = localStorage.getItem('username')
       if (storedUsername) {
         username.value = storedUsername
-        console.log('Username loaded from localStorage:', storedUsername)
+        // console.log('Username loaded from localStorage:', storedUsername)
       } else {
         // 如果沒有保存的 username，不從 JWT token 解析（因為 JWT 中可能只有 user_id）
         // 用戶需要重新登入以保存 username
         username.value = null
-        console.warn('No username found in localStorage. Please login again to save username.')
+        // console.warn('No username found in localStorage. Please login again to save username.')
       }
     } catch (error) {
       console.error('Failed to access localStorage:', error)
@@ -108,7 +108,7 @@
   
   const navItems = computed(() => [
     { name: 'home', path: '/', icon: Home, label: t('navigation.overview') },
-    { name: 'assets', path: '/assets', icon: Package, label: t('navigation.assets') },
+    { name: 'monthly-tracking', path: '/monthly-tracking', icon: ChartBar, label: t('navigation.monthlyTracking') },
     { name: 'transactions', path: '/transactions', icon: History, label: t('navigation.transactions') },
     { name: 'settings', path: '/settings', icon: Settings, label: t('navigation.settings') },
   ])
@@ -174,17 +174,19 @@
       </nav>
       
       <!-- Fixed tooltip for navigation items -->
-      <div
-        v-if="isCollapsed && tooltipState.show"
-        class="fixed px-3 py-2 bg-zinc-900 dark:bg-zinc-800 text-white text-xs rounded-lg pointer-events-none whitespace-nowrap z-[9999] shadow-xl transition-opacity"
-        :style="{
-          left: tooltipState.x + 'px',
-          top: tooltipState.y + 'px',
-          transform: 'translateY(-50%)'
-        }"
-      >
-        {{ tooltipState.text }}
-      </div>
+      <Teleport to="body">
+        <div
+          v-if="isCollapsed && tooltipState.show"
+          class="fixed px-3 py-2 bg-zinc-900 dark:bg-zinc-800 text-white text-xs rounded-lg pointer-events-none whitespace-nowrap z-[99999] shadow-xl transition-opacity"
+          :style="{
+            left: tooltipState.x + 'px',
+            top: tooltipState.y + 'px',
+            transform: 'translateY(-50%)'
+          }"
+        >
+          {{ tooltipState.text }}
+        </div>
+      </Teleport>
 
       <div :class="cn('p-4 border-t bg-muted/20 space-y-4', isCollapsed ? 'p-3' : 'p-4')">
 

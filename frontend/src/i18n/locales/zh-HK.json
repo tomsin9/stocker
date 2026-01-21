@@ -16,7 +16,7 @@
     "uploading": "上傳中..."
   },
   "dashboard": {
-    "title": "Dashboard",
+    "title": "投資組合總覽",
     "lastUpdated": "最後更新",
     "notUpdated": "尚未更新",
     "refreshPrices": "更新股價",
@@ -58,7 +58,13 @@
     "noHoldings": "目前沒有持倉，請先匯入交易紀錄或新增交易。",
     "fifoInventory": "FIFO Inventory",
     "selectAction": "選擇要執行的操作",
-    "importCSVDescription": "從 CSV 檔案匯入交易紀錄"
+    "importCSVDescription": "從 CSV 檔案匯入交易紀錄",
+    "summary": "摘要",
+    "portfolioOverview": "投資組合總覽",
+    "summaryDescription": "投資組合概覽和統計",
+    "summaryTab": "摘要",
+    "allocationTab": "資產分配",
+    "performanceTab": "表現"
   },
   "transaction": {
     "title": "手動新增交易",
@@ -121,6 +127,8 @@
     "transactions": "交易紀錄",
     "assets": "資產",
     "add": "新增",
+    "tracking": "追蹤",
+    "monthlyTracking": "月份追蹤",
     "settings": "設定"
   },
   "transactions": {
@@ -210,6 +218,50 @@
     "viewLicense": "查看授權",
     "logout": "登出",
     "logoutDescription": "登出您的帳號"
+  },
+  "monthlyTracking": {
+    "title": "月份追蹤資料",
+    "description": "查看每月交易統計數據",
+    "year": "年份",
+    "month": "月份",
+    "avgProfit": "平均獲利",
+    "avgLoss": "平均虧損",
+    "winRate": "勝率",
+    "totalTrades": "交易總筆數",
+    "maxProfit": "最大獲利",
+    "maxLoss": "最大虧損",
+    "avgHoldingDaysSuccess": "成功部位平均持有天數",
+    "avgHoldingDaysFail": "失敗部位平均持有天數",
+    "profit": "獲利",
+    "startingCapital": "起始資金",
+    "totalProfit": "總獲利",
+    "totalProfitPercent": "總獲利%",
+    "unrealizedProfit": "未實現損益",
+    "unrealizedProfitPercent": "未實現損益%",
+    "noData": "目前沒有數據",
+    "months": {
+      "1": "一月",
+      "2": "二月",
+      "3": "三月",
+      "4": "四月",
+      "5": "五月",
+      "6": "六月",
+      "7": "七月",
+      "8": "八月",
+      "9": "九月",
+      "10": "十月",
+      "11": "十一月",
+      "12": "十二月"
+    },
+    "showDetails": "顯示完整詳情",
+    "hideDetails": "隱藏詳情",
+    "avg": "平均",
+    "gainLossChart": "每月盈虧",
+    "gain": "獲利",
+    "loss": "虧損",
+    "trendingUp": "本月上升 {percent}%",
+    "trendingDown": "本月下跌 {percent}%",
+    "noChange": "本月無變化"
   },
   "errors": {
     "goBack": "返回",

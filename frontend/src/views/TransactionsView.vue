@@ -1,12 +1,14 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { ArrowLeft, Filter, ArrowDownCircle, ArrowUpCircle, TrendingUp, TrendingDown } from 'lucide-vue-next'
+import { ArrowLeft, Filter, ArrowDownCircle, ArrowUpCircle, TrendingUp, TrendingDown, Pencil, Trash2 } from 'lucide-vue-next'
 import { injectCurrency } from '@/composables/useCurrency'
 import BottomNavigation from '@/components/BottomNavigation.vue'
+import AddTransactionSheet from '@/components/AddTransactionSheet.vue'
+import CashFlowEditSheet from '@/components/CashFlowEditSheet.vue'
 import api from '@/api'
 import { cn } from '@/lib/utils'
 
@@ -57,6 +59,13 @@ const goBack = () => {
 const transactions = ref([])
 const isLoading = ref(false)
 
+// Edit/Delete 狀態
+const showEditTransactionSheet = ref(false)
+const editingTransaction = ref(null)
+const showEditCashFlowSheet = ref(false)
+const editingCashFlow = ref(null)
+const deletingId = ref(null)
+
 // Filter 狀態
 const selectedAction = ref('all')  // all, BUY, SELL, DIVIDEND, DEPOSIT, WITHDRAW
 const selectedDateRange = ref('7d')  // 7d, 30d, 90d, all
@@ -74,12 +83,12 @@ const fetchTransactions = async () => {
     transactions.value = response.data || []
     
     // 調試信息：檢查是否有 cashflow 記錄
-    const cashflowCount = transactions.value.filter(tx => tx.record_type === 'cashflow').length
-    if (cashflowCount > 0) {
-      console.log(`Found ${cashflowCount} cashflow records`)
-    } else if (selectedAction.value === 'DEPOSIT' || selectedAction.value === 'WITHDRAW') {
-      console.log('No cashflow records found for selected filter. Try changing date range to "All Time"')
-    }
+    // const cashflowCount = transactions.value.filter(tx => tx.record_type === 'cashflow').length
+    // if (cashflowCount > 0) {
+    //   console.log(`Found ${cashflowCount} cashflow records`)
+    // } else if (selectedAction.value === 'DEPOSIT' || selectedAction.value === 'WITHDRAW') {
+    //   console.log('No cashflow records found for selected filter. Try changing date range to "All Time"')
+    // }
   } catch (error) {
     console.error('Failed to fetch transactions', error)
   } finally {
@@ -90,6 +99,88 @@ const fetchTransactions = async () => {
 // 當 filter 改變時重新獲取數據
 const handleFilterChange = () => {
   fetchTransactions()
+}
+
+// 打開編輯交易表單
+const openEditTransaction = async (transaction) => {
+  editingTransaction.value = transaction
+  await nextTick()
+  showEditTransactionSheet.value = true
+}
+
+// 處理編輯交易成功
+const handleEditTransactionSuccess = async () => {
+  showEditTransactionSheet.value = false
+  editingTransaction.value = null
+  await fetchTransactions()
+}
+
+// 打開編輯現金流表單
+const openEditCashFlow = async (cashflow) => {
+  editingCashFlow.value = cashflow
+  await nextTick()
+  showEditCashFlowSheet.value = true
+}
+
+// 處理編輯現金流成功
+const handleEditCashFlowSuccess = async () => {
+  showEditCashFlowSheet.value = false
+  editingCashFlow.value = null
+  await fetchTransactions()
+}
+
+// 刪除交易
+const deleteTransaction = async (transactionId) => {
+  if (deletingId.value === transactionId) {
+    return
+  }
+  
+  if (!confirm(t('transaction.confirmDelete'))) {
+    return
+  }
+  
+  deletingId.value = transactionId
+  try {
+    await api.delete(`/transactions/${transactionId}/`)
+    await fetchTransactions()
+  } catch (error) {
+    console.error('Failed to delete transaction', error)
+    const errorMessage = error.response?.data?.detail || 
+                        error.response?.data?.error || 
+                        error.response?.data?.message ||
+                        error.message || 
+                        t('messages.deleteError')
+    alert(`${t('messages.deleteError')}: ${errorMessage}`)
+  } finally {
+    deletingId.value = null
+  }
+}
+
+// 刪除現金流
+const deleteCashFlow = async (cashflowId) => {
+  if (deletingId.value === cashflowId) {
+    return
+  }
+  
+  if (!confirm(t('transaction.confirmDelete'))) {
+    return
+  }
+  
+  deletingId.value = cashflowId
+  try {
+    await api.delete(`/cashflow/${cashflowId}/`)
+    await fetchTransactions()
+  } catch (error) {
+    console.error('Failed to delete cashflow', error)
+    const errorMessage = error.response?.data?.detail || 
+                        error.response?.data?.error || 
+                        error.response?.data?.message ||
+                        error.message || 
+                        t('messages.deleteError')
+    alert(`${t('messages.deleteError')}: ${errorMessage}`)
+  } finally {
+    deletingId.value = null
+  }
 }
 
 // 貨幣格式化函數（顯示原始幣種，不包含幣種標記）
@@ -139,7 +230,7 @@ onMounted(() => {
             variant="ghost" 
             size="icon"
             @click="goBack"
-            class="min-h-[44px] min-w-[44px] active:scale-95"
+            class="min-h-[44px] min-w-[44px] active:scale-95 md:hidden"
           >
             <ArrowLeft class="h-5 w-5" />
           </Button>
@@ -205,7 +296,7 @@ onMounted(() => {
           class="active:scale-[0.98] transition-transform"
         >
           <CardContent class="p-4">
-            <div class="flex justify-between items-start">
+            <div class="flex justify-between items-start gap-3">
               <div class="flex-1">
                 <div class="flex items-center gap-2 mb-1 flex-wrap">
                   <!-- 股票代號（僅 Transaction 顯示） -->
@@ -289,6 +380,28 @@ onMounted(() => {
                   <div class="text-xs text-muted-foreground font-medium">{{ tx.currency }}</div>
                 </template>
               </div>
+              <!-- Edit/Delete 按鈕 -->
+              <div class="flex flex-col gap-1 flex-shrink-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  @click="tx.record_type === 'transaction' ? openEditTransaction(tx) : openEditCashFlow(tx)"
+                  class="min-h-[32px] min-w-[32px] p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950"
+                  :title="t('common.edit')"
+                >
+                  <Pencil class="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  @click="tx.record_type === 'transaction' ? deleteTransaction(tx.id) : deleteCashFlow(tx.id)"
+                  :disabled="deletingId === tx.id"
+                  class="min-h-[32px] min-w-[32px] p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950 disabled:opacity-50"
+                  :title="t('common.delete')"
+                >
+                  <Trash2 class="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -297,12 +410,27 @@ onMounted(() => {
 
     <!-- Bottom Navigation (Mobile Only) -->
     <BottomNavigation />
+
+    <!-- Edit Transaction Sheet -->
+    <AddTransactionSheet 
+      v-model:open="showEditTransactionSheet"
+      mode="edit"
+      :transaction="editingTransaction"
+      @success="handleEditTransactionSuccess"
+    />
+
+    <!-- Edit CashFlow Sheet -->
+    <CashFlowEditSheet 
+      v-model:open="showEditCashFlowSheet"
+      :cashflow="editingCashFlow"
+      @success="handleEditCashFlowSuccess"
+    />
   </div>
 </template>
 
 <style scoped>
 .safe-area-bottom {
-  padding-bottom: calc(env(safe-area-inset-bottom) + 0.5rem);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 @media (min-width: 768px) {

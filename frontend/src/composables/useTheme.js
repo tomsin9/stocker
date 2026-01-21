@@ -1,15 +1,15 @@
 import { ref, watch, onMounted } from 'vue'
 
 export function useTheme() {
-  // 從 localStorage 讀取主題，默認使用 light
+  // 從 localStorage 讀取主題，默認使用 dark
   const getInitialTheme = () => {
-    if (typeof window === 'undefined') return 'light'
+    if (typeof window === 'undefined') return 'dark'
     const savedTheme = localStorage.getItem('theme')
     if (savedTheme === 'dark' || savedTheme === 'light') {
       return savedTheme
     }
-    // 默認使用 light 主題
-    return 'light'
+    // 默認使用 dark 主題
+    return 'dark'
   }
   
   const theme = ref(getInitialTheme())
@@ -25,7 +25,7 @@ export function useTheme() {
       root.classList.remove('dark')
     }
     // 調試用（可在開發時查看）
-    console.log('Theme updated to:', themeValue, 'Has dark class:', root.classList.contains('dark'))
+    // console.log('Theme updated to:', themeValue, 'Has dark class:', root.classList.contains('dark'))
   }
   
   // 在組件掛載時應用主題

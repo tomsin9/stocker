@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { Home, History, Package, Settings, Plus } from 'lucide-vue-next'
+import { Home, History, Settings, Plus, ChartBar } from 'lucide-vue-next'
 import { cn } from '@/lib/utils'
 import { injectAddOptions } from '@/composables/useAddOptions'
 
@@ -17,7 +17,7 @@ const { openAddOptions } = injectAddOptions()
 
 const navItems = computed(() => [
   { name: 'home', path: '/', icon: Home, label: t('navigation.overview') },
-  { name: 'assets', path: '/assets', icon: Package, label: t('navigation.assets') },
+  { name: 'monthly-tracking', path: '/monthly-tracking', icon: ChartBar, label: t('navigation.tracking') },
   { name: 'add', path: null, icon: Plus, label: t('navigation.add'), action: true, onClick: props.onAddClick },
   { name: 'transactions', path: '/transactions', icon: History, label: t('navigation.transactions') },
   { name: 'settings', path: '/settings', icon: Settings, label: t('navigation.settings') },

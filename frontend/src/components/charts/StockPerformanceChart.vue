@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { Line } from 'vue-chartjs'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js'
 import { useI18n } from 'vue-i18n'
@@ -35,6 +35,7 @@ const selectedStocks = ref([])
 const stockHistoryData = ref({})
 const showSP500 = ref(false)
 const showHSI = ref(false)
+const isMobile = ref(false)
 
 // 指數符號
 const INDEX_SYMBOLS = {
@@ -255,59 +256,105 @@ const chartData = computed(() => {
   }
 })
 
-const chartOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  interaction: {
-    mode: 'index',
-    intersect: false
-  },
-  plugins: {
-    legend: {
-      position: 'top',
-      labels: {
-        usePointStyle: true,
-        padding: 15,
-        font: {
-          size: 12
+// 檢測是否為移動設備
+const checkMobile = () => {
+  if (typeof window !== 'undefined') {
+    isMobile.value = window.innerWidth < 768
+  }
+}
+
+// 格式化日期根據時間範圍
+const formatDate = (dateString) => {
+  if (!dateString) return ''
+  
+  const date = new Date(dateString)
+  if (isNaN(date.getTime())) return dateString
+  
+  // 根據 period 決定格式
+  const shortPeriods = ['1mo', '3mo', '6mo']
+  const isShortPeriod = shortPeriods.includes(period.value)
+  
+  if (isShortPeriod) {
+    // 1M/3M/6M: DD/MM
+    const day = String(date.getDate()).padStart(2, '0')
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    return `${day}/${month}`
+  } else {
+    // 1Y/2Y/5Y/Max: MM/YYYY
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const year = date.getFullYear()
+    return `${month}/${year}`
+  }
+}
+
+const chartOptions = computed(() => {
+  const mobile = isMobile.value
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: {
+      mode: 'index',
+      intersect: false
+    },
+    plugins: {
+      legend: {
+        position: 'top',
+        display: !mobile, // 在手機上隱藏 legend
+        labels: {
+          usePointStyle: true,
+          padding: mobile ? 10 : 15,
+          font: {
+            size: mobile ? 10 : 12
+          }
+        }
+      },
+      tooltip: {
+        callbacks: {
+          label: function(context) {
+            const label = context.dataset.label || ''
+            const value = context.parsed.y
+            return `${label}: ${value !== null ? value.toFixed(2) + '%' : 'N/A'}`
+          }
         }
       }
     },
-    tooltip: {
-      callbacks: {
-        label: function(context) {
-          const label = context.dataset.label || ''
-          const value = context.parsed.y
-          return `${label}: ${value !== null ? value.toFixed(2) + '%' : 'N/A'}`
+    scales: {
+      x: {
+        display: true,
+        title: {
+          display: !mobile, // 在手機上隱藏標題
+          text: t('assets.date')
+        },
+        ticks: {
+          maxTicksLimit: mobile ? 4 : 6,
+          callback: function(value, index) {
+            const label = this.getLabelForValue(value)
+            return formatDate(label)
+          },
+          font: {
+            size: mobile ? 10 : 12
+          }
         }
-      }
-    }
-  },
-  scales: {
-    x: {
-      display: true,
-      title: {
-        display: true,
-        text: t('assets.date')
       },
-      ticks: {
-        maxTicksLimit: 10
-      }
-    },
-    y: {
-      display: true,
-      title: {
+      y: {
         display: true,
-        text: t('assets.performancePercentage')
-      },
-      ticks: {
-        callback: function(value) {
-          return value.toFixed(1) + '%'
+        title: {
+          display: !mobile, // 在手機上隱藏標題
+          text: t('assets.performancePercentage')
+        },
+        ticks: {
+          maxTicksLimit: mobile ? 4 : 6,
+          callback: function(value) {
+            return value.toFixed(1) + '%'
+          },
+          font: {
+            size: mobile ? 10 : 12
+          }
         }
       }
     }
   }
-}
+})
 
 // 初始化選中的股票
 const initializeSelectedStocks = () => {
@@ -346,7 +393,16 @@ const initializeSelectedStocks = () => {
 
 // 初始化：選擇前5個股票
 onMounted(() => {
+  checkMobile()
+  window.addEventListener('resize', checkMobile)
   initializeSelectedStocks()
+})
+
+// 清理事件監聽器
+onUnmounted(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', checkMobile)
+  }
 })
 
 // 監聽 portfolio 變化（當 filter 改變時會觸發）
@@ -382,19 +438,19 @@ watch(() => props.marketFilter, (newFilter) => {
 <template>
   <Card>
     <CardHeader>
-      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div>
-          <CardTitle>{{ t('assets.stockPerformanceChart') }}</CardTitle>
-          <CardDescription>{{ t('assets.stockPerformanceChartDescription') }}</CardDescription>
+          <CardTitle class="text-lg sm:text-xl">{{ t('assets.stockPerformanceChart') }}</CardTitle>
+          <CardDescription class="text-xs sm:text-sm">{{ t('assets.stockPerformanceChartDescription') }}</CardDescription>
         </div>
-        <div class="flex flex-wrap gap-2">
+        <div class="flex flex-wrap gap-1.5 sm:gap-2 overflow-x-auto pb-1">
           <Button
             v-for="p in periods"
             :key="p.value"
             :variant="period === p.value ? 'default' : 'outline'"
             size="sm"
             @click="changePeriod(p.value)"
-            class="min-w-[50px]"
+            class="min-w-[60px] sm:min-w-[50px] min-h-[44px] sm:min-h-[36px] text-xs sm:text-sm whitespace-nowrap"
           >
             {{ p.label }}
           </Button>
@@ -403,46 +459,46 @@ watch(() => props.marketFilter, (newFilter) => {
     </CardHeader>
     <CardContent>
       <!-- Stock Selection -->
-      <div v-if="portfolio && portfolio.length > 0" class="mb-4 p-4 bg-muted/50 rounded-lg">
-        <div class="text-sm font-medium mb-2">{{ t('assets.selectStocks') }}:</div>
-        <div class="flex flex-wrap gap-3">
+      <div v-if="portfolio && portfolio.length > 0" class="mb-3 sm:mb-4 p-3 sm:p-4 bg-muted/50 rounded-lg">
+        <div class="text-xs sm:text-sm font-medium mb-2">{{ t('assets.selectStocks') }}:</div>
+        <div class="flex flex-wrap gap-2 sm:gap-3">
           <label
             v-for="item in portfolio"
             :key="item.symbol"
-            class="flex items-center gap-2 cursor-pointer"
+            class="flex items-center gap-2 cursor-pointer min-h-[44px] sm:min-h-auto"
           >
             <input
               type="checkbox"
               :checked="selectedStocks.includes(item.symbol)"
               @change="toggleStock(item.symbol)"
-              class="w-4 h-4 rounded border-gray-300"
+              class="w-5 h-5 sm:w-4 sm:h-4 rounded border-gray-300 flex-shrink-0"
             />
-            <span class="text-sm">{{ item.symbol }}</span>
+            <span class="text-xs sm:text-sm">{{ item.symbol }}</span>
           </label>
         </div>
       </div>
 
       <!-- Index Selection -->
-      <div class="mb-4 p-4 bg-muted/50 rounded-lg">
-        <div class="text-sm font-medium mb-2">{{ t('assets.selectIndices') }}:</div>
-        <div class="flex flex-wrap gap-3">
-          <label class="flex items-center gap-2 cursor-pointer">
+      <div class="mb-3 sm:mb-4 p-3 sm:p-4 bg-muted/50 rounded-lg">
+        <div class="text-xs sm:text-sm font-medium mb-2">{{ t('assets.selectIndices') }}:</div>
+        <div class="flex flex-wrap gap-2 sm:gap-3">
+          <label class="flex items-center gap-2 cursor-pointer min-h-[44px] sm:min-h-auto">
             <input
               type="checkbox"
               :checked="showSP500"
               @change="toggleIndex('SP500')"
-              class="w-4 h-4 rounded border-gray-300"
+              class="w-5 h-5 sm:w-4 sm:h-4 rounded border-gray-300 flex-shrink-0"
             />
-            <span class="text-sm">{{ t('assets.sp500') }}</span>
+            <span class="text-xs sm:text-sm">{{ t('assets.sp500') }}</span>
           </label>
-          <label class="flex items-center gap-2 cursor-pointer">
+          <label class="flex items-center gap-2 cursor-pointer min-h-[44px] sm:min-h-auto">
             <input
               type="checkbox"
               :checked="showHSI"
               @change="toggleIndex('HSI')"
-              class="w-4 h-4 rounded border-gray-300"
+              class="w-5 h-5 sm:w-4 sm:h-4 rounded border-gray-300 flex-shrink-0"
             />
-            <span class="text-sm">{{ t('assets.hsi') }}</span>
+            <span class="text-xs sm:text-sm">{{ t('assets.hsi') }}</span>
           </label>
         </div>
       </div>
@@ -456,7 +512,7 @@ watch(() => props.marketFilter, (newFilter) => {
       <div v-else-if="Object.keys(stockHistoryData).length === 0" class="text-center py-8 text-muted-foreground">
         {{ t('assets.noHistoryData') }}
       </div>
-      <div v-else class="h-[300px] md:h-[400px]">
+      <div v-else class="h-[350px] sm:h-[300px] md:h-[400px]">
         <Line :data="chartData" :options="chartOptions" />
       </div>
     </CardContent>

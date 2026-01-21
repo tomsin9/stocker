@@ -153,21 +153,22 @@ watch(() => props.symbol, (newSymbol) => {
 
 <template>
   <Dialog :open="open" @update:open="emit('update:open', $event)">
-    <DialogContent class="max-w-4xl max-h-[90vh] overflow-y-auto">
+    <DialogContent class="max-w-4xl max-h-[90vh] sm:max-h-[90vh] h-[100vh] sm:h-auto overflow-y-auto p-4 sm:p-6 m-0 sm:m-4 rounded-none sm:rounded-lg">
       <DialogHeader>
-        <DialogTitle>{{ t('transaction.viewTransactions') }} - {{ symbol }}</DialogTitle>
-        <DialogDescription>
+        <DialogTitle class="text-lg sm:text-xl">{{ t('transaction.viewTransactions') }} - {{ symbol }}</DialogTitle>
+        <DialogDescription class="text-xs sm:text-sm">
           {{ t('transaction.description') }}
         </DialogDescription>
       </DialogHeader>
-      <div v-if="isLoadingTransactions" class="text-center py-8 text-muted-foreground">
+      <div v-if="isLoadingTransactions" class="text-center py-8 text-muted-foreground text-sm">
         {{ t('common.loading') }}
       </div>
-      <div v-else-if="symbolTransactions.length === 0" class="text-center py-8 text-muted-foreground">
+      <div v-else-if="symbolTransactions.length === 0" class="text-center py-8 text-muted-foreground text-sm">
         {{ t('transaction.noTransactionsForSymbol') }}
       </div>
-      <div v-else class="space-y-3">
-        <div class="rounded-md border">
+      <div v-else>
+        <!-- Desktop Table View -->
+        <div class="hidden sm:block rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
@@ -240,6 +241,97 @@ watch(() => props.symbol, (newSymbol) => {
               </TableRow>
             </TableBody>
           </Table>
+        </div>
+
+        <!-- Mobile Card List View -->
+        <div class="sm:hidden space-y-3">
+          <div 
+            v-for="tx in symbolTransactions" 
+            :key="tx.id"
+            class="rounded-lg border p-4 space-y-3 active:scale-[0.98] transition-transform"
+          >
+            <!-- Header: Date and Action -->
+            <div class="flex items-center justify-between pb-2 border-b">
+              <div class="text-sm font-medium">
+                {{ new Date(tx.date).toLocaleDateString() }}
+              </div>
+              <div class="flex items-center gap-2">
+                <span 
+                  :class="[
+                    'px-2 py-1 rounded text-xs font-medium',
+                    tx.action === 'BUY' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' :
+                    tx.action === 'SELL' ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300' :
+                    'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                  ]"
+                >
+                  {{ tx.action }}
+                </span>
+                <!-- 市場標籤 -->
+                <span 
+                  :class="cn(
+                    'px-1 py-0 rounded text-[10px] font-medium border',
+                    getMarketColor(tx.symbol || symbol)
+                  )"
+                >
+                  {{ getMarketType(tx.symbol || symbol) === 'HK' ? 'HK' : 'US' }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Transaction Details Grid -->
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <p class="text-xs text-muted-foreground mb-1">{{ t('transaction.quantity') }}</p>
+                <p class="text-sm font-semibold">{{ tx.quantity?.toLocaleString() || 0 }}</p>
+              </div>
+              <div>
+                <p class="text-xs text-muted-foreground mb-1">{{ t('transaction.price') }}</p>
+                <div>
+                  <p class="text-sm font-semibold">{{ formatCurrency(tx.price || 0, tx.currency) }}</p>
+                  <p class="text-xs text-muted-foreground font-medium">{{ tx.currency || 'USD' }}</p>
+                </div>
+              </div>
+              <div>
+                <p class="text-xs text-muted-foreground mb-1">{{ t('transaction.fees') }}</p>
+                <div>
+                  <p class="text-sm font-semibold">{{ formatCurrency(tx.fees || 0, tx.currency) }}</p>
+                  <p class="text-xs text-muted-foreground font-medium">{{ tx.currency || 'USD' }}</p>
+                </div>
+              </div>
+              <div>
+                <p class="text-xs text-muted-foreground mb-1">Total</p>
+                <div>
+                  <p class="text-sm font-semibold">
+                    {{ formatCurrency((tx.price || 0) * (tx.quantity || 0) + (tx.fees || 0), tx.currency) }}
+                  </p>
+                  <p class="text-xs text-muted-foreground font-medium">{{ tx.currency || 'USD' }}</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex gap-2 pt-2 border-t">
+              <Button
+                variant="outline"
+                size="sm"
+                @click="openEditForm(tx)"
+                class="flex-1 min-h-[44px] text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950"
+              >
+                <Pencil class="h-4 w-4 mr-2" />
+                {{ t('common.edit') }}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                @click="deleteTransaction(tx.id)"
+                :disabled="deletingTransactionId === tx.id"
+                class="flex-1 min-h-[44px] text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950 disabled:opacity-50"
+              >
+                <Trash2 class="h-4 w-4 mr-2" />
+                {{ t('common.delete') }}
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     </DialogContent>

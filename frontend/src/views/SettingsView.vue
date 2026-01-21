@@ -49,7 +49,7 @@ const showAboutDialog = ref(false)
             variant="ghost" 
             size="icon"
             @click="goBack"
-            class="min-h-[44px] min-w-[44px] active:scale-95"
+            class="min-h-[44px] min-w-[44px] active:scale-95 md:hidden"
           >
             <ArrowLeft class="h-5 w-5" />
           </Button>
@@ -214,7 +214,7 @@ const showAboutDialog = ref(false)
 
 <style scoped>
 .safe-area-bottom {
-  padding-bottom: calc(env(safe-area-inset-bottom) + 0.5rem);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 @media (min-width: 768px) {

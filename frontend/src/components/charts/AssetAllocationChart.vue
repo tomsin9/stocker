@@ -1,12 +1,21 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
-import { Pie } from 'vue-chartjs'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { Doughnut } from 'vue-chartjs'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
 import { useI18n } from 'vue-i18n'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { generateChartColors, getCSSVariable } from '@/lib/chartColors'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
+
+const isMobile = ref(false)
+
+// 檢測是否為移動設備
+const checkMobile = () => {
+  if (typeof window !== 'undefined') {
+    isMobile.value = window.innerWidth < 768
+  }
+}
 
 const props = defineProps({
   portfolio: {
@@ -102,31 +111,47 @@ const chartData = computed(() => {
   }
 })
 
-const chartOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: {
-      position: 'right',
-      labels: {
-        padding: 15,
-        usePointStyle: true,
-        font: {
-          size: 12
+const chartOptions = computed(() => {
+  const mobile = isMobile.value
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: mobile ? 'bottom' : 'right',
+        labels: {
+          padding: mobile ? 10 : 15,
+          usePointStyle: true,
+          font: {
+            size: mobile ? 10 : 12
+          }
         }
-      }
-    },
-    tooltip: {
-      callbacks: {
-        label: function(context) {
-          const label = context.label || ''
-          // label 格式已經是 "Symbol: $value (percentage%)"，直接返回
-          return label
+      },
+      tooltip: {
+        callbacks: {
+          label: function(context) {
+            const label = context.label || ''
+            // label 格式已經是 "Symbol: $value (percentage%)"，直接返回
+            return label
+          }
         }
       }
     }
   }
-}
+})
+
+onMounted(() => {
+  checkMobile()
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', checkMobile)
+  }
+})
+
+onUnmounted(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', checkMobile)
+  }
+})
 </script>
 
 <template>
@@ -139,8 +164,8 @@ const chartOptions = {
       <div v-if="(!portfolio || portfolio.length === 0) && (!cash || cash === 0)" class="text-center py-8 text-muted-foreground">
         {{ t('assets.noAssets') }}
       </div>
-      <div v-else class="h-[300px] md:h-[400px]">
-        <Pie :data="chartData" :options="chartOptions" />
+      <div v-else class="h-[300px]">
+        <Doughnut :data="chartData" :options="chartOptions" />
       </div>
     </CardContent>
   </Card>
