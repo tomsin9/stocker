@@ -47,7 +47,13 @@
       "name": "Hang Lung Group Limited",
       "currency": "HKD",
       "last_validated": "2026-01-21T11:50:44.532432"
+    },
+    {
+      "symbol": "0001.HK",
+      "name": "CK Hutchison Holdings Limited",
+      "currency": "HKD",
+      "last_validated": "2026-01-21T14:34:14.265534"
     }
   ],
-  "last_updated": "2026-01-21T11:51:08.007651"
+  "last_updated": "2026-01-21T14:34:14.265567"
 }
