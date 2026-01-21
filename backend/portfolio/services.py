@@ -28,17 +28,30 @@ def get_usd_to_hkd_rate():
 
 def get_total_invested_capital(user):
     """
-    計算總投入本金：所有 CashFlow 中 DEPOSIT 減去 WITHDRAW 的總和
+    計算總投入本金：所有 CashFlow 中 DEPOSIT 減去 WITHDRAW 的總和（統一轉換為 USD）
     """
-    total_deposits = CashFlow.objects.filter(user=user, type='DEPOSIT').aggregate(
-        total=models.Sum('amount')
-    )['total'] or Decimal('0.00')
+    usd_to_hkd_rate = get_usd_to_hkd_rate()
     
-    total_withdraws = CashFlow.objects.filter(user=user, type='WITHDRAW').aggregate(
-        total=models.Sum('amount')
-    )['total'] or Decimal('0.00')
+    total_deposits_usd = Decimal('0.00')
+    total_withdraws_usd = Decimal('0.00')
     
-    return total_deposits - total_withdraws
+    # 計算所有存款（轉換為 USD）
+    deposits = CashFlow.objects.filter(user=user, type='DEPOSIT')
+    for deposit in deposits:
+        if deposit.currency == 'USD':
+            total_deposits_usd += deposit.amount
+        elif deposit.currency == 'HKD':
+            total_deposits_usd += deposit.amount / usd_to_hkd_rate
+    
+    # 計算所有提款（轉換為 USD）
+    withdraws = CashFlow.objects.filter(user=user, type='WITHDRAW')
+    for withdraw in withdraws:
+        if withdraw.currency == 'USD':
+            total_withdraws_usd += withdraw.amount
+        elif withdraw.currency == 'HKD':
+            total_withdraws_usd += withdraw.amount / usd_to_hkd_rate
+    
+    return total_deposits_usd - total_withdraws_usd
 
 def calculate_current_cash(user, base_currency='USD'):
     """
@@ -541,8 +554,15 @@ def calculate_position(asset, user, usd_to_hkd_rate=None):
     long_market_value_usd = convert_to_usd(long_market_value, asset_currency, usd_to_hkd_rate)
     short_market_value_usd = convert_to_usd(short_market_value, asset_currency, usd_to_hkd_rate)
     
+    # 從緩存中獲取公司名稱
+    cache_data = load_stock_list_cache()
+    stocks = cache_data.get('stocks', [])
+    cached_stock = next((s for s in stocks if s.get('symbol') == asset.symbol), None)
+    company_name = cached_stock.get('name', '') if cached_stock else ''
+    
     return {
         'symbol': asset.symbol,
+        'name': company_name,  # 從緩存獲取公司名稱
         'currency': asset_currency,
         'quantity': current_quantity,  # 可能為負數
         'avg_cost': avg_cost_usd,  # USD

@@ -17,9 +17,9 @@ provideAddOptions()
     <SideNavigation />
 
     <!-- Main Content Area -->
-    <main class="flex-1 flex flex-col min-h-screen md:min-h-0">
+    <main class="flex-1 flex flex-col min-h-screen md:min-h-0 transition-all duration-300 ease-in-out">
       <!-- Router View -->
-      <div class="flex-1 pb-16 md:pb-0">
+      <div class="flex-1 pb-16 md:pb-0 transition-all duration-300 ease-in-out">
         <router-view />
       </div>
     </main>

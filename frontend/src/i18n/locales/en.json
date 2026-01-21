@@ -7,7 +7,13 @@
     "add": "Add",
     "upload": "Upload",
     "import": "Import",
-    "actions": "Actions"
+    "actions": "Actions",
+    "backToHome": "Back to Home",
+    "retry": "Retry",
+    "edit": "Edit",
+    "delete": "Delete",
+    "saving": "Saving...",
+    "uploading": "Uploading..."
   },
   "dashboard": {
     "title": "Dashboard",
@@ -37,6 +43,9 @@
     "switchCurrency": "Switch Currency",
     "holdings": "Holdings",
     "holdingsDescription": "Portfolio calculated using FIFO method",
+    "filterAll": "All",
+    "filterUS": "US",
+    "filterHK": "HK",
     "symbol": "Symbol",
     "quantity": "Quantity",
     "avgCost": "Average Cost",
@@ -45,6 +54,7 @@
     "totalMarketValue": "Total Market Value",
     "unrealizedPLShort": "Unrealized P/L",
     "returnRate": "Return Rate",
+    "short": "SHORT",
     "noHoldings": "No holdings yet. Please import trade records or add a transaction.",
     "fifoInventory": "FIFO Inventory",
     "selectAction": "Select an action to perform",
@@ -78,7 +88,9 @@
     "viewTransactions": "View Transactions",
     "noTransactionsForSymbol": "No transactions found for this symbol",
     "shortSellingNote": "Note: If you currently have no position, selling will be treated as short selling (opening a short position).",
-    "dividend": "Dividend"
+    "dividend": "Dividend",
+    "editTransaction": "Edit Transaction",
+    "editDescription": "Update transaction details"
   },
   "cashflow": {
     "title": "Cash Flow",
@@ -90,6 +102,7 @@
     "withdraw": "Withdraw",
     "amount": "Amount",
     "amountPlaceholder": "0.00",
+    "currency": "Currency",
     "type": "Type",
     "date": "Date",
     "notes": "Notes (Optional)",
@@ -115,6 +128,9 @@
     "title": "Transaction History",
     "description": "View all your trading records",
     "noTransactions": "No transactions yet",
+    "tryAllTime": "Try selecting 'All Time' in the date range filter to see older records",
+    "transactions": "transactions",
+    "cashflows": "cashflows",
     "filter": {
       "type": "Type",
       "dateRange": "Date Range",
@@ -160,7 +176,40 @@
     "languageDescription": "Choose your preferred language",
     "currency": "Currency",
     "currencyDescription": "Switch between USD and HKD",
+    "about": "About",
+    "aboutDescription": "Application information and version",
+    "viewAbout": "About App",
+    "appName": "Stocker",
+    "appVersion": "Version",
+    "appDescription": "A mobile-first stock portfolio tracker for HK investors — optimized for Docker",
+    "author": "Author",
+    "license": "License",
+    "licenseDescription": "View license information",
+    "viewLicense": "View License",
     "logout": "Logout",
     "logoutDescription": "Logout from your account"
+  },
+  "errors": {
+    "goBack": "Go Back",
+    "notFound": {
+      "title": "Page Not Found",
+      "message": "The page you are looking for does not exist or has been moved."
+    },
+    "serverError": {
+      "title": "Server Error",
+      "message": "Something went wrong on our end. Please try again later."
+    },
+    "forbidden": {
+      "title": "Access Forbidden",
+      "message": "You do not have permission to access this resource."
+    },
+    "unauthorized": {
+      "title": "Unauthorized",
+      "message": "Please log in to access this page."
+    },
+    "generic": {
+      "title": "An Error Occurred",
+      "message": "Something unexpected happened. Please try again."
+    }
   }
 }

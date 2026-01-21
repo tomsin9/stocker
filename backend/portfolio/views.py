@@ -174,7 +174,22 @@ class CSVImportView(APIView):
                 if not symbol:
                     continue
                 
-                # 獲取或創建資產
+                # 獲取或創建資產（不需要保存公司名稱，從緩存中獲取即可）
+                # 如果緩存中沒有，嘗試通過 yfinance 獲取並添加到緩存
+                from .services import load_stock_list_cache, validate_symbol_with_yfinance, add_stock_to_cache
+                cache_data = load_stock_list_cache()
+                stocks = cache_data.get('stocks', [])
+                cached_stock = next((s for s in stocks if s.get('symbol') == symbol), None)
+                
+                # 如果緩存中沒有，嘗試通過 yfinance 獲取並添加到緩存
+                if not cached_stock:
+                    try:
+                        is_valid, symbol_normalized, name, currency, _ = validate_symbol_with_yfinance(symbol)
+                        if is_valid:
+                            add_stock_to_cache(symbol_normalized, name, currency)
+                    except:
+                        pass  # 如果獲取失敗，繼續
+                
                 asset, created = Asset.objects.get_or_create(symbol=symbol)
                 
                 # 創建交易記錄（需要根據實際 CSV 格式調整）

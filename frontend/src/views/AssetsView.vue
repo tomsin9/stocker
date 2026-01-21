@@ -42,31 +42,30 @@ const getExchangeRate = () => {
   return summary.value.exchange_rate || summary.value.usd_to_hkd_rate || 7.8
 }
 
+// 將 USD 金額轉換為原始幣種（後端返回的 avg_cost 和 current_market_value 都是 USD）
+const convertFromUsd = (usdAmount, targetCurrency) => {
+  if (!targetCurrency || targetCurrency === 'USD') {
+    return usdAmount
+  }
+  const exchangeRate = getExchangeRate()
+  if (targetCurrency === 'HKD') {
+    return usdAmount * exchangeRate
+  }
+  return usdAmount
+}
+
+// 貨幣格式化函數（顯示原始幣種，不包含幣種標記）
 const formatCurrency = (amount, originalCurrency = null) => {
   if (amount === null || amount === undefined || isNaN(amount)) {
-    return currentCurrency.value === 'HKD' ? 'HK$0.00' : '$0.00'
+    const currency = originalCurrency || 'USD'
+    const currencySymbol = currency === 'HKD' ? 'HK$' : '$'
+    return currencySymbol + '0.00'
   }
   const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount
-  const sourceCurrency = originalCurrency || 'USD'
-  const exchangeRate = getExchangeRate()
+  const currency = originalCurrency || 'USD'
+  const currencySymbol = currency === 'HKD' ? 'HK$' : '$'
   
-  // 如果原始幣種與當前顯示幣種不同，需要轉換
-  let displayAmount = numAmount
-  if (sourceCurrency !== currentCurrency.value) {
-    if (sourceCurrency === 'USD' && currentCurrency.value === 'HKD') {
-      displayAmount = numAmount * exchangeRate
-    } else if (sourceCurrency === 'HKD' && currentCurrency.value === 'USD') {
-      displayAmount = numAmount / exchangeRate
-    }
-  } else if (!originalCurrency) {
-    // 沒有指定原始幣種，假設是 USD，根據當前顯示幣種轉換
-    if (currentCurrency.value === 'HKD') {
-      displayAmount = numAmount * exchangeRate
-    }
-  }
-  
-  const currencySymbol = currentCurrency.value === 'HKD' ? 'HK$' : '$'
-  return `${currencySymbol}${Math.abs(displayAmount).toLocaleString('en-US', { 
+  return `${currencySymbol}${Math.abs(numAmount).toLocaleString('en-US', { 
     minimumFractionDigits: 2, 
     maximumFractionDigits: 2 
   })}`
@@ -137,7 +136,7 @@ onMounted(() => {
                   <!-- 市場標籤 -->
                   <span 
                     :class="cn(
-                      'px-1.5 py-0.5 rounded text-[10px] font-medium border',
+                      'px-1 py-0 rounded text-[10px] font-medium border',
                       getMarketColor(item.symbol)
                     )"
                   >
@@ -160,38 +159,30 @@ onMounted(() => {
                   {{ t('dashboard.quantity') }}: {{ parseFloat(item.quantity || 0).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') }}
                 </div>
                 <div class="text-sm text-muted-foreground">
-                  {{ t('dashboard.avgCost') }}: {{ formatCurrency(item.avg_cost || 0, item.currency) }}
+                  {{ t('dashboard.avgCost') }}: {{ formatCurrency(convertFromUsd(item.avg_cost || 0, item.currency), item.currency) }}
+                  <span class="text-xs text-muted-foreground font-medium ml-1">{{ item.currency || 'USD' }}</span>
                 </div>
               </div>
               <div class="text-right">
-                <!-- 主幣種大字 -->
+                <!-- 市值顯示原始幣種 -->
                 <div 
                   :class="[
                     'font-semibold text-lg',
                     item.quantity < 0 ? 'text-purple-600 dark:text-purple-400' : ''
                   ]"
                 >
-                  {{ formatCurrency(item.current_market_value || 0, item.currency) }}
+                  {{ formatCurrency(convertFromUsd(item.current_market_value || 0, item.currency), item.currency) }}
                 </div>
-                <!-- 副幣種小字（始終顯示另一個幣種的換算） -->
-                <div class="text-xs text-muted-foreground">
-                  <!-- 如果當前顯示 USD，副幣種顯示 HKD -->
-                  <span v-if="currentCurrency === 'USD'">
-                    ≈ HK${{ ((item.current_market_value || 0) * getExchangeRate()).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
-                  </span>
-                  <!-- 如果當前顯示 HKD，副幣種顯示 USD -->
-                  <span v-else>
-                    ≈ ${{ ((item.current_market_value || 0) / getExchangeRate()).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
-                  </span>
-                </div>
+                <div class="text-xs text-muted-foreground font-medium">{{ item.currency || 'USD' }}</div>
                 <div 
                   :class="[
                     'text-sm font-medium mt-1',
                     item.unrealized_pl >= 0 ? 'text-green-600' : 'text-red-600'
                   ]"
                 >
-                  {{ item.unrealized_pl >= 0 ? '+' : '' }}{{ formatCurrency(Math.abs(item.unrealized_pl || 0), item.currency) }}
+                  {{ item.unrealized_pl >= 0 ? '+' : '' }}{{ formatCurrency(convertFromUsd(Math.abs(item.unrealized_pl || 0), item.currency), item.currency) }}
                 </div>
+                <div class="text-xs text-muted-foreground font-medium">{{ item.currency || 'USD' }}</div>
               </div>
             </div>
           </CardContent>

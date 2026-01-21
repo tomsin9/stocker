@@ -3,6 +3,8 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "repository": "https://github.com/tomsin9/stocker",
+  "author": "Tom Sin <contact@tomsinp.com>",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

@@ -2,10 +2,20 @@
 import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import path from 'path'
+import { readFileSync } from 'fs'
 
 export default defineConfig(({ mode }) => {
   // 載入環境變數 (從專案根目錄或 frontend 目錄)
   const env = loadEnv(mode, process.cwd(), '');
+  
+  // 讀取 package.json 版本號（用於注入到環境變數）
+  let packageVersion = '0.0.0'
+  try {
+    const packageJson = JSON.parse(readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8'))
+    packageVersion = packageJson.version || '0.0.0'
+  } catch (e) {
+    console.warn('Could not read package.json version:', e)
+  }
   
   const allowedHosts = env.VITE_ALLOWED_HOSTS 
     ? env.VITE_ALLOWED_HOSTS.split(',') 
@@ -26,6 +36,10 @@ export default defineConfig(({ mode }) => {
       alias: {
         '@': path.resolve(__dirname, './src'),
       },
+    },
+    define: {
+      // 注入 package.json 版本號到應用程式
+      'import.meta.env.PACKAGE_VERSION': JSON.stringify(packageVersion),
     },
     server: {
       // 如需從其他裝置存取，可改為 '0.0.0.0'（會觸發瀏覽器權限提示）

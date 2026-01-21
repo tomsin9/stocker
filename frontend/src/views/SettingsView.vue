@@ -1,12 +1,15 @@
 <script setup>
+import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Globe, Moon, Sun, DollarSign, ArrowLeft, LogOut } from 'lucide-vue-next'
+import { Globe, Moon, Sun, DollarSign, ArrowLeft, LogOut, Info } from 'lucide-vue-next'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { injectCurrency } from '@/composables/useCurrency'
 import { useTheme } from '@/composables/useTheme'
 import BottomNavigation from '@/components/BottomNavigation.vue'
+import { APP_INFO } from '@/config/app'
 
 const { locale, t } = useI18n()
 const router = useRouter()
@@ -31,6 +34,8 @@ const handleLogout = () => {
   // 跳轉到登入頁
   router.push('/login')
 }
+
+const showAboutDialog = ref(false)
 </script>
 
 <template>
@@ -116,7 +121,7 @@ const handleLogout = () => {
           <CardContent>
             <Button 
               variant="outline" 
-              class="w-full justify-start min-h-[44px] active:scale-95 text-destructive hover:text-destructive hover:bg-destructive/10"
+              class="w-full justify-start min-h-[44px] active:scale-95 text-red-500 hover:text-red-700 hover:bg-destructive/10"
               @click="handleLogout"
             >
               <LogOut class="h-4 w-4 mr-2" />
@@ -124,8 +129,82 @@ const handleLogout = () => {
             </Button>
           </CardContent>
         </Card>
+
+        <!-- About & License -->
+        <Card>
+          <CardHeader>
+            <CardTitle>{{ t('settings.about') }}</CardTitle>
+            <CardDescription>{{ t('settings.aboutDescription') }}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button 
+              variant="outline" 
+              class="w-full justify-start min-h-[44px] active:scale-95"
+              @click="showAboutDialog = true"
+            >
+              <Info class="h-4 w-4 mr-2" />
+              {{ t('settings.viewAbout') }}
+            </Button>
+          </CardContent>
+        </Card>
+
       </div>
     </div>
+
+    <!-- About Dialog -->
+    <Dialog v-model:open="showAboutDialog">
+      <DialogContent class="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>{{ t('settings.about') }}</DialogTitle>
+          <DialogDescription>{{ t('settings.aboutDescription') }}</DialogDescription>
+        </DialogHeader>
+        <div class="space-y-4 py-4">
+          <div class="space-y-2">
+            <div class="flex items-center gap-2">
+              <Info class="h-5 w-5 text-muted-foreground" />
+              <a 
+                :href="APP_INFO.repository" target="_blank" 
+                rel="noopener noreferrer" 
+                class="font-semibold text-lg underline text-primary">
+                {{ APP_INFO.name }}
+              </a>
+            </div>
+            <p class="text-sm text-muted-foreground ml-7">
+              {{ t('settings.appDescription') }}
+            </p>
+          </div>
+          
+          <div class="space-y-3 pt-2 border-t">
+            <div class="space-y-1">
+              <span class="text-sm font-medium">{{ t('settings.appVersion') }}:</span>
+              <span class="text-sm text-muted-foreground ml-2">{{ APP_INFO.version }}</span>
+            </div>
+            <div class="space-y-1">
+              <span class="text-sm font-medium">{{ t('settings.author') }}:</span>
+              <a 
+                :href="`mailto:${APP_INFO.authorEmail}`" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                class="text-sm text-muted-foreground ml-2 underline hover:text-primary"
+              >
+                {{ APP_INFO.author }}
+              </a>
+            </div>
+            <div class="space-y-1">
+              <span class="text-sm font-medium">{{ t('settings.license') }}:</span>
+              <a 
+                :href="APP_INFO.licenseUrl" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                class="text-sm text-muted-foreground ml-2 underline hover:text-primary"
+              >
+                {{ APP_INFO.license }}
+              </a>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
 
     <!-- Bottom Navigation (Mobile Only) -->
     <BottomNavigation />

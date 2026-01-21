@@ -7,7 +7,13 @@
     "add": "新增",
     "upload": "上傳",
     "import": "匯入",
-    "actions": "操作"
+    "actions": "操作",
+    "backToHome": "返回首頁",
+    "retry": "重試",
+    "edit": "編輯",
+    "delete": "刪除",
+    "saving": "儲存中...",
+    "uploading": "上傳中..."
   },
   "dashboard": {
     "title": "Dashboard",
@@ -37,6 +43,9 @@
     "switchCurrency": "切換貨幣",
     "holdings": "持倉明細",
     "holdingsDescription": "使用 FIFO 方法計算的投資組合",
+    "filterAll": "全部",
+    "filterUS": "美股",
+    "filterHK": "港股",
     "symbol": "股票代號",
     "quantity": "股數",
     "avgCost": "平均成本",
@@ -45,6 +54,7 @@
     "totalMarketValue": "總市值",
     "unrealizedPLShort": "帳面損益",
     "returnRate": "損益率",
+    "short": "做空",
     "noHoldings": "目前沒有持倉，請先匯入交易紀錄或新增交易。",
     "fifoInventory": "FIFO Inventory",
     "selectAction": "選擇要執行的操作",
@@ -77,7 +87,9 @@
     "confirmDelete": "確定要刪除此交易嗎？",
     "viewTransactions": "查看交易",
     "noTransactionsForSymbol": "此股票目前沒有交易記錄",
-    "shortSellingNote": "注意：若目前無持倉，賣出操作將被視為賣空（開空倉）。"
+    "shortSellingNote": "注意：若目前無持倉，賣出操作將被視為賣空（開空倉）。",
+    "editTransaction": "編輯交易",
+    "editDescription": "更新交易詳情"
   },
   "cashflow": {
     "title": "現金流",
@@ -89,6 +101,7 @@
     "withdraw": "提取",
     "amount": "金額",
     "amountPlaceholder": "0.00",
+    "currency": "幣種",
     "type": "類型",
     "date": "日期",
     "notes": "備註 (可選)",
@@ -114,6 +127,9 @@
     "title": "交易紀錄",
     "description": "查看所有交易記錄",
     "noTransactions": "目前沒有交易記錄",
+    "tryAllTime": "嘗試選擇「全部時間」以查看更早的記錄",
+    "transactions": "筆交易",
+    "cashflows": "筆現金流",
     "filter": {
       "type": "類型",
       "dateRange": "時間範圍",
@@ -159,7 +175,40 @@
     "languageDescription": "選擇您的偏好語言",
     "currency": "貨幣",
     "currencyDescription": "在美元和港元之間切換",
+    "about": "關於",
+    "aboutDescription": "應用程式資訊和版本",
+    "viewAbout": "關於應用程式",
+    "appName": "Stocker",
+    "appVersion": "版本",
+    "appDescription": "香港投資者專用的股票投資組合管理應用程式",
+    "author": "作者",
+    "license": "授權",
+    "licenseDescription": "查看授權資訊",
+    "viewLicense": "查看授權",
     "logout": "登出",
     "logoutDescription": "登出您的帳號"
+  },
+  "errors": {
+    "goBack": "返回",
+    "notFound": {
+      "title": "找不到頁面",
+      "message": "您要尋找的頁面不存在或已被移動。"
+    },
+    "serverError": {
+      "title": "伺服器錯誤",
+      "message": "伺服器發生錯誤，請稍後再試。"
+    },
+    "forbidden": {
+      "title": "存取被拒絕",
+      "message": "您沒有權限存取此資源。"
+    },
+    "unauthorized": {
+      "title": "未授權",
+      "message": "請先登入以存取此頁面。"
+    },
+    "generic": {
+      "title": "發生錯誤",
+      "message": "發生未預期的錯誤，請稍後再試。"
+    }
   }
 }

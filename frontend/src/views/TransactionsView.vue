@@ -4,7 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { ArrowLeft, Filter } from 'lucide-vue-next'
+import { ArrowLeft, Filter, ArrowDownCircle, ArrowUpCircle, TrendingUp, TrendingDown } from 'lucide-vue-next'
 import { injectCurrency } from '@/composables/useCurrency'
 import BottomNavigation from '@/components/BottomNavigation.vue'
 import api from '@/api'
@@ -72,6 +72,14 @@ const fetchTransactions = async () => {
     }
     const response = await api.get('/transactions/', { params })
     transactions.value = response.data || []
+    
+    // 調試信息：檢查是否有 cashflow 記錄
+    const cashflowCount = transactions.value.filter(tx => tx.record_type === 'cashflow').length
+    if (cashflowCount > 0) {
+      console.log(`Found ${cashflowCount} cashflow records`)
+    } else if (selectedAction.value === 'DEPOSIT' || selectedAction.value === 'WITHDRAW') {
+      console.log('No cashflow records found for selected filter. Try changing date range to "All Time"')
+    }
   } catch (error) {
     console.error('Failed to fetch transactions', error)
   } finally {
@@ -84,34 +92,28 @@ const handleFilterChange = () => {
   fetchTransactions()
 }
 
+// 貨幣格式化函數（顯示原始幣種，不包含幣種標記）
 const formatCurrency = (amount, originalCurrency = null) => {
   if (amount === null || amount === undefined || isNaN(amount)) {
-    return currentCurrency.value === 'HKD' ? 'HK$0.00' : '$0.00'
+    const currency = originalCurrency || 'USD'
+    const currencySymbol = currency === 'HKD' ? 'HK$' : '$'
+    return currencySymbol + '0.00'
   }
   const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount
-  const sourceCurrency = originalCurrency || 'USD'
+  const currency = originalCurrency || 'USD'
+  const currencySymbol = currency === 'HKD' ? 'HK$' : '$'
   
-  // 如果原始幣種與當前顯示幣種不同，需要轉換
-  let displayAmount = numAmount
-  if (sourceCurrency !== currentCurrency.value) {
-    if (sourceCurrency === 'USD' && currentCurrency.value === 'HKD') {
-      displayAmount = numAmount * exchangeRate.value
-    } else if (sourceCurrency === 'HKD' && currentCurrency.value === 'USD') {
-      displayAmount = numAmount / exchangeRate.value
-    }
-  }
-  
-  const currencySymbol = currentCurrency.value === 'HKD' ? 'HK$' : '$'
-  return `${currencySymbol}${Math.abs(displayAmount).toLocaleString('en-US', { 
+  return `${currencySymbol}${Math.abs(numAmount).toLocaleString('en-US', { 
     minimumFractionDigits: 2, 
     maximumFractionDigits: 2 
   })}`
 }
 
-// 獲取原始幣種顯示（不轉換）
+// 獲取原始幣種顯示（不轉換，用於顯示原始值）
 const formatCurrencyOriginal = (amount, currency) => {
   if (amount === null || amount === undefined || isNaN(amount)) {
-    return currency === 'HKD' ? 'HK$0.00' : '$0.00'
+    const currencySymbol = currency === 'HKD' ? 'HK$' : '$'
+    return currencySymbol + '0.00'
   }
   const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount
   const currencySymbol = currency === 'HKD' ? 'HK$' : '$'
@@ -186,9 +188,17 @@ onMounted(() => {
         {{ t('common.loading') }}
       </div>
       <div v-else-if="transactions.length === 0" class="text-center py-8 text-muted-foreground">
-        {{ t('transactions.noTransactions') }}
+        <p>{{ t('transactions.noTransactions') }}</p>
+        <p v-if="selectedAction === 'DEPOSIT' || selectedAction === 'WITHDRAW'" class="text-xs mt-2 text-muted-foreground">
+          {{ t('transactions.tryAllTime') }}
+        </p>
       </div>
       <div v-else class="space-y-3">
+        <!-- 統計信息（僅在開發環境或調試時顯示） -->
+        <div v-if="transactions.some(tx => tx.record_type === 'cashflow')" class="mb-2 text-xs text-muted-foreground">
+          {{ transactions.filter(tx => tx.record_type === 'transaction').length }} {{ t('transactions.transactions') }}, 
+          {{ transactions.filter(tx => tx.record_type === 'cashflow').length }} {{ t('transactions.cashflows') }}
+        </div>
         <Card 
           v-for="tx in transactions" 
           :key="`${tx.record_type}-${tx.id}`"
@@ -203,14 +213,18 @@ onMounted(() => {
                     {{ tx.symbol }}
                   </span>
                   <!-- 現金流標題（CashFlow 顯示） -->
-                  <span v-else-if="tx.record_type === 'cashflow'" class="font-semibold text-lg">
-                    {{ tx.action === 'DEPOSIT' ? t('cashflow.depositTitle') : t('cashflow.withdrawTitle') }}
-                  </span>
+                  <div v-else-if="tx.record_type === 'cashflow'" class="flex items-center gap-2">
+                    <ArrowDownCircle v-if="tx.action === 'DEPOSIT'" class="h-5 w-5 text-green-600" />
+                    <ArrowUpCircle v-else-if="tx.action === 'WITHDRAW'" class="h-5 w-5 text-red-600" />
+                    <span class="font-semibold text-lg">
+                      {{ tx.action === 'DEPOSIT' ? t('cashflow.depositTitle') : t('cashflow.withdrawTitle') }}
+                    </span>
+                  </div>
                   <!-- 市場標籤（僅 Transaction 且有 symbol 時顯示） -->
                   <span 
                     v-if="tx.record_type === 'transaction' && tx.symbol"
                     :class="cn(
-                      'px-1.5 py-0.5 rounded text-[10px] font-medium border',
+                      'px-1 py-0 rounded text-[10px] font-medium border',
                       getMarketColor(tx.symbol)
                     )"
                   >
@@ -256,10 +270,7 @@ onMounted(() => {
                       {{ formatCurrency(tx.price * tx.quantity, getTransactionCurrency(tx)) }}
                     </template>
                   </div>
-                  <div class="text-xs text-muted-foreground">
-                    {{ formatCurrencyOriginal(tx.price * tx.quantity, getTransactionCurrency(tx)) }}
-                    <span class="ml-1 text-[10px]">({{ getTransactionCurrency(tx) }})</span>
-                  </div>
+                  <div class="text-xs text-muted-foreground font-medium">{{ getTransactionCurrency(tx) }}</div>
                   <div v-if="tx.action !== 'DIVIDEND'" class="text-sm text-muted-foreground mt-0.5">
                     {{ parseFloat(tx.quantity || 0).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',') }} @ {{ formatCurrency(tx.price, getTransactionCurrency(tx)) }}
                   </div>
@@ -275,10 +286,7 @@ onMounted(() => {
                   <div class="font-semibold">
                     {{ formatCurrency(tx.amount, tx.currency) }}
                   </div>
-                  <div class="text-xs text-muted-foreground">
-                    {{ formatCurrencyOriginal(tx.amount, tx.currency) }}
-                    <span class="ml-1 text-[10px]">({{ tx.currency }})</span>
-                  </div>
+                  <div class="text-xs text-muted-foreground font-medium">{{ tx.currency }}</div>
                 </template>
               </div>
             </div>

@@ -4,6 +4,9 @@ import LoginView from '../views/LoginView.vue'
 import TransactionsView from '../views/TransactionsView.vue'
 import AssetsView from '../views/AssetsView.vue'
 import SettingsView from '../views/SettingsView.vue'
+import ErrorView from '../views/ErrorView.vue'
+import NotFoundView from '../views/NotFoundView.vue'
+import ServerErrorView from '../views/ServerErrorView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -32,6 +35,27 @@ const router = createRouter({
       path: '/settings',
       name: 'settings',
       component: SettingsView
+    },
+    {
+      path: '/error/:code?',
+      name: 'error',
+      component: ErrorView,
+      props: true
+    },
+    {
+      path: '/404',
+      name: 'not-found',
+      component: NotFoundView
+    },
+    {
+      path: '/500',
+      name: 'server-error',
+      component: ServerErrorView
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'catch-all',
+      component: NotFoundView
     }
   ]
 });

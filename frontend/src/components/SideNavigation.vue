@@ -56,7 +56,7 @@
     <aside 
       :class="cn(
         'hidden md:flex md:flex-col md:h-screen md:sticky md:top-0 md:border-r md:bg-card transition-all duration-300 ease-in-out',
-        isCollapsed ? 'md:w-[80px]' : 'md:w-[260px]'
+        isCollapsed ? 'md:w-[64px]' : 'md:w-[260px]'
       )"
     >
       <div :class="cn('flex items-center border-b my-auto', isCollapsed ? 'justify-center h-[72px]' : 'px-4 h-[72px]')">

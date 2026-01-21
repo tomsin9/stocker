@@ -15,11 +15,11 @@
 
 a {
   font-weight: 500;
-  color: #e5383b;
+  color: #2563eb;
   text-decoration: inherit;
 }
 a:hover {
-  color: #ba181b;
+  color: #1d4ed8;
 }
 
 body {
@@ -143,5 +143,25 @@ h1 {
   /* Smooth scrolling for mobile */
   * {
     -webkit-overflow-scrolling: touch;
+  }
+  
+  /* iOS Safari gesture support */
+  html, body {
+    touch-action: manipulation;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  
+  /* Allow text selection in input fields and content areas */
+  input, textarea, [contenteditable] {
+    -webkit-user-select: text;
+    user-select: text;
+    touch-action: auto;
+  }
+  
+  /* Enable pan gestures for scrollable containers */
+  [data-scrollable], .overflow-auto, .overflow-x-auto, .overflow-y-auto {
+    touch-action: pan-x pan-y;
   }
 }

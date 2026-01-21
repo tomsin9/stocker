@@ -34,8 +34,6 @@ class Transaction(models.Model):
         ('BUY', 'Buy (買入)'),
         ('SELL', 'Sell (賣出)'),
         ('DIVIDEND', 'Dividend (股息)'),
-        ('DEPOSIT', 'Deposit (入金)'),   # Optional: 如果你想記現金流
-        ('WITHDRAW', 'Withdraw (出金)'), # Optional
     ]
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='transactions', help_text="擁有此交易的用戶")

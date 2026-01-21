@@ -14,6 +14,7 @@ class AssetSerializer(serializers.ModelSerializer):
 
 class PortfolioSummarySerializer(serializers.Serializer):
     symbol = serializers.CharField()
+    name = serializers.CharField(required=False, allow_blank=True, default='')  # 公司名稱
     currency = serializers.CharField(required=False, default='USD')
     quantity = serializers.DecimalField(max_digits=12, decimal_places=4)
     avg_cost = serializers.DecimalField(max_digits=12, decimal_places=4)
@@ -52,6 +53,10 @@ class TransactionSerializer(serializers.ModelSerializer):
             # 添加到緩存
             add_stock_to_cache(symbol_normalized, name, currency)
             
+            # 將名稱和幣種保存到實例變量，供 create 方法使用
+            self._validated_symbol_name = name
+            self._validated_symbol_currency = currency
+            
             # 返回標準化的股票代號
             return symbol_normalized
         except serializers.ValidationError:
@@ -67,14 +72,14 @@ class TransactionSerializer(serializers.ModelSerializer):
         # 標準化股票代號（雖然 validate_symbol 已經處理，但這裡再確保一次）
         symbol_normalized = normalize_symbol(symbol)
         
-        # 判斷幣種
-        currency = detect_asset_currency(symbol_normalized)
+        # 從驗證結果中獲取幣種（如果有的話）
+        currency = getattr(self, '_validated_symbol_currency', None) or detect_asset_currency(symbol_normalized)
         
         # 獲取當前匯率
         from .services import get_usd_to_hkd_rate
         usd_to_hkd_rate = get_usd_to_hkd_rate()
         
-        # 獲取或創建資產
+        # 獲取或創建資產（不需要保存公司名稱，從緩存中獲取即可）
         asset, created = Asset.objects.get_or_create(
             symbol=symbol_normalized,
             defaults={'currency': currency}
