@@ -17,12 +17,12 @@ frontend/node_modules/
 frontend/dist/
 
 # Django
-*.log
+backend/*.log
 backend/*.csv
-/media
-/public
-/staticfiles
-*.sqlite3
+backend/media
+backend/public
+backend/staticfiles
+backend/*.sqlite3
 
 # Docker
 .docker/
