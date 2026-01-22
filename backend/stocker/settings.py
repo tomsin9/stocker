@@ -154,9 +154,31 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# CORS 配置
-CORS_ALLOWED_ORIGINS = env('CORS_ALLOWED_ORIGINS', default='http://localhost:5173,http://127.0.0.1:5173').split(',')
+# 注意：必須使用對外公開的 port，不是 Docker container 內部的port
+CORS_ALLOWED_ORIGINS = env(
+    'CORS_ALLOWED_ORIGINS',
+    default='http://localhost:8000,http://127.0.0.1:8000,http://localhost:5173,http://127.0.0.1:5173'
+).split(',')
 CORS_ALLOW_CREDENTIALS = True
+
+# 包含伺服器本身的 origin 以及任何需要存取 admin 的 origin
+# 注意：必須使用對外公開的 port，不是 Docker container 內部的port
+CSRF_TRUSTED_ORIGINS = env(
+    'CSRF_TRUSTED_ORIGINS',
+    default='http://localhost:8000,http://127.0.0.1:8000,http://localhost:5173,http://127.0.0.1:5173'
+).split(',')
+
+# Session cookie 設定（確保 CSRF 可以正常工作）
+SESSION_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE = 'Lax'
+
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+
+if DEBUG:
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
+
 
 # REST Framework 配置
 REST_FRAMEWORK = {
