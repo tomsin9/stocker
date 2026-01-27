@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -149,6 +149,100 @@ watch(() => props.symbol, (newSymbol) => {
     fetchSymbolTransactions(newSymbol)
   }
 })
+
+// 計算未平倉交易（使用 FIFO 邏輯）
+const getOpenPositionTransactions = (transactions) => {
+  if (!transactions || transactions.length === 0) return []
+  
+  // 過濾掉 DIVIDEND 交易（股息不影響持倉）
+  const positionTransactions = transactions.filter(tx => tx.action !== 'DIVIDEND')
+  
+  // 按日期和創建時間排序（最舊的在前面，用於 FIFO）
+  const sorted = [...positionTransactions].sort((a, b) => {
+    const dateA = new Date(a.date)
+    const dateB = new Date(b.date)
+    if (dateA.getTime() !== dateB.getTime()) {
+      return dateA.getTime() - dateB.getTime()
+    }
+    // 如果日期相同，按創建時間排序
+    const createdA = a.created_at ? new Date(a.created_at).getTime() : 0
+    const createdB = b.created_at ? new Date(b.created_at).getTime() : 0
+    return createdA - createdB
+  })
+  
+  // 使用 FIFO 邏輯追蹤未平倉交易
+  const inventory = [] // 多頭持倉 [{transaction, remainingQuantity}, ...]
+  const shortInventory = [] // 空頭持倉 [{transaction, remainingQuantity}, ...]
+  const openTransactions = new Set() // 追蹤未平倉的交易 ID
+  
+  for (const tx of sorted) {
+    const quantity = parseFloat(tx.quantity || 0)
+    
+    if (tx.action === 'BUY') {
+      // 買入：先嘗試平倉賣空，剩餘的再入庫
+      let qtyToBuy = quantity
+      
+      // 先平倉賣空
+      while (qtyToBuy > 0 && shortInventory.length > 0) {
+        const shortBatch = shortInventory[0]
+        if (shortBatch.remainingQuantity > qtyToBuy) {
+          // 這批賣空倉位夠平，且還有剩
+          shortBatch.remainingQuantity -= qtyToBuy
+          qtyToBuy = 0
+        } else {
+          // 這批賣空倉位不夠平，全部平掉
+          qtyToBuy -= shortBatch.remainingQuantity
+          shortInventory.shift()
+        }
+      }
+      
+      // 如果還有剩餘，入庫（多頭持倉）
+      if (qtyToBuy > 0) {
+        inventory.push({
+          transaction: tx,
+          remainingQuantity: qtyToBuy
+        })
+        openTransactions.add(tx.id)
+      }
+      
+    } else if (tx.action === 'SELL') {
+      // 賣出：先嘗試平倉多頭，剩餘的再開空頭
+      let qtyToSell = quantity
+      
+      // 先平倉多頭
+      while (qtyToSell > 0 && inventory.length > 0) {
+        const longBatch = inventory[0]
+        if (longBatch.remainingQuantity > qtyToSell) {
+          // 這批多頭倉位夠平，且還有剩
+          longBatch.remainingQuantity -= qtyToSell
+          qtyToSell = 0
+        } else {
+          // 這批多頭倉位不夠平，全部平掉
+          qtyToSell -= longBatch.remainingQuantity
+          openTransactions.delete(longBatch.transaction.id)
+          inventory.shift()
+        }
+      }
+      
+      // 如果還有剩餘，開空頭
+      if (qtyToSell > 0) {
+        shortInventory.push({
+          transaction: tx,
+          remainingQuantity: qtyToSell
+        })
+        openTransactions.add(tx.id)
+      }
+    }
+  }
+  
+  // 返回未平倉的交易（按原始順序，但只包含未平倉的）
+  return transactions.filter(tx => openTransactions.has(tx.id))
+}
+
+// 計算屬性：只顯示未平倉的交易
+const openPositionTransactions = computed(() => {
+  return getOpenPositionTransactions(symbolTransactions.value)
+})
 </script>
 
 <template>
@@ -246,7 +340,7 @@ watch(() => props.symbol, (newSymbol) => {
         <!-- Mobile Card List View -->
         <div class="sm:hidden space-y-3">
           <div 
-            v-for="tx in symbolTransactions" 
+            v-for="tx in openPositionTransactions" 
             :key="tx.id"
             class="rounded-lg border p-4 space-y-3 active:scale-[0.98] transition-transform"
           >

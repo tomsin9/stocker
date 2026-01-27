@@ -2,21 +2,29 @@
 FROM node:20-alpine AS build-stage
 
 WORKDIR /app
-COPY package*.json ./
-RUN npm install
-COPY . .
 
 # 接受構建參數（用於環境變數）
 ARG VITE_ALLOWED_HOSTS
 ARG VITE_DJANGO_HOST
 
 # 設置環境變數（Vite 在構建時會讀取 VITE_* 開頭的環境變數）
-ENV VITE_ALLOWED_HOSTS=${VITE_ALLOWED_HOSTS}
-ENV VITE_DJANGO_HOST=${VITE_DJANGO_HOST}
+ENV VITE_ALLOWED_HOSTS=${VITE_ALLOWED_HOSTS} \
+    VITE_DJANGO_HOST=${VITE_DJANGO_HOST}
 
-# Vite 會根據這個指令生成 dist/ 資料夾
-RUN npm run build
+# 先複製 package 文件，利用 Docker 緩存層
+COPY package*.json ./
 
+# 安裝所有依賴（包括 devDependencies，構建需要）
+RUN npm ci && \
+    npm cache clean --force
+
+# 複製源碼
+COPY . .
+
+# 構建應用並清理
+RUN npm run build && \
+    npm cache clean --force && \
+    rm -rf node_modules
 
 # Stage 2: Serve with Nginx
 FROM nginx:stable-alpine AS production-stage

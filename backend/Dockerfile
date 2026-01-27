@@ -1,28 +1,68 @@
-# backend/Dockerfile
-FROM python:3.12-slim
+# Stage 1: Build stage - 安裝依賴（需要編譯工具）
+FROM python:3.12-slim AS builder
 
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
 
-# 設定工作目錄
 WORKDIR /app
 
-# 安裝系統依賴 (Postgres client 需要)
-RUN apt-get update && apt-get install -y \
+# 安裝編譯工具（只在構建階段需要）
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
+# 建立虛擬環境並確保之後的 pip 裝入去
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# 安裝 Python 依賴到 /usr/local（系統路徑）
 COPY requirements_base.txt .
-RUN pip install --no-cache-dir -r requirements_base.txt
+RUN pip install --upgrade pip && \
+    pip install -r requirements_base.txt
 
-# 複製程式碼 (雖然 Compose 會 mount volume，但 build 時複製一份是好習慣)
+# 複製程式碼並收集靜態文件
 COPY . .
+ENV DJANGO_SETTINGS_MODULE=stocker.settings
+RUN python manage.py collectstatic --noinput --clear || true
 
-# 如果你在 Windows 上編輯過 entrypoint.sh，沒有這行在 VPS 可能會報 "file not found"
-RUN sed -i 's/\r$//' /app/docker-entrypoint.sh
+# Stage 2: Runtime stage - 只保留運行時需要的
+FROM python:3.12-slim
 
-# 處理 entrypoint.sh 的權限
-RUN chmod +x /app/docker-entrypoint.sh
+# 1. 建立一個系統用戶 (appuser)，唔畀佢有 login 權限以增加安全性
+RUN useradd --create-home --shell /bin/bash appuser
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/opt/venv/bin:$PATH"
+
+WORKDIR /app
+
+# 只安裝運行時需要的系統依賴（不需要 gcc）
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    libpq5 \
+    && apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# 複製編譯好的 Python 包
+COPY --from=builder /opt/venv /opt/venv
+
+# 從構建階段複製已收集的靜態文件
+RUN mkdir -p /app/staticfiles && chown appuser:appuser /app/staticfiles
+COPY --from=builder /app/staticfiles /app/staticfiles
+
+# 4. 複製 Entrypoint 同 Source code，並將擁有者設為 appuser
+COPY --chown=appuser:appuser docker-entrypoint.sh .
+RUN sed -i 's/\r$//' docker-entrypoint.sh && \
+    chmod +x docker-entrypoint.sh
+
+COPY --chown=appuser:appuser . .
+
+# 5. 切換到該用戶執行
+USER appuser
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
