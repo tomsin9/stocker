@@ -55,12 +55,21 @@ COPY --from=builder /opt/venv /opt/venv
 RUN mkdir -p /app/staticfiles && chown appuser:appuser /app/staticfiles
 COPY --from=builder /app/staticfiles /app/staticfiles
 
+# 確保 public 同 static 資料夾存在，並且 appuser 有權讀寫
+RUN mkdir -p /app/public /app/staticfiles && \
+    chown -R appuser:appuser /app/public /app/staticfiles
+
+# 如果你有用 SQLite，連個 DB file 或者資料夾都要改權限
+# RUN chown appuser:appuser /app/db.sqlite3 || true
+
 # 4. 複製 Entrypoint 同 Source code，並將擁有者設為 appuser
 COPY --chown=appuser:appuser docker-entrypoint.sh .
 RUN sed -i 's/\r$//' docker-entrypoint.sh && \
     chmod +x docker-entrypoint.sh
 
 COPY --chown=appuser:appuser . .
+
+RUN mkdir -p /app/public && chown -R appuser:appuser /app/public
 
 # 5. 切換到該用戶執行
 USER appuser
