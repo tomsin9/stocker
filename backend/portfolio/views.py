@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Prefetch
-from .models import Asset, Transaction, CashFlow, AccountBalance
+from .models import Asset, Transaction, CashFlow, AccountBalance, DailySnapshot
 from .services import (
     calculate_position, 
     get_total_invested_capital, 
@@ -157,76 +157,153 @@ class AddTransactionView(APIView):
 class CSVImportView(APIView):
     """
     匯入 CSV 交易記錄
+    支援格式：Ticker, 股數, 買入價, 賣出價, 買入時間, 賣出時間（一行代表一筆來回，會自動拆成 BUY + SELL）
     權限：需要登入，所有交易自動關聯到當前用戶
     """
     permission_classes = [IsAuthenticated]
-    
+
+    def _parse_date(self, s):
+        """Parse DD/MM/YYYY or YYYY-MM-DD."""
+        if not s or str(s).strip().lower() in ('', 'nan'):
+            return None
+        s = str(s).strip()
+        try:
+            return datetime.strptime(s, "%d/%m/%Y").date()
+        except ValueError:
+            try:
+                return datetime.strptime(s, "%Y-%m-%d").date()
+            except ValueError:
+                return None
+
+    def _normalize_symbol(self, ticker_raw):
+        """700 -> 0700.HK, 9988 -> 9988.HK, AAPL -> AAPL."""
+        if not ticker_raw:
+            return None
+        raw = str(ticker_raw).strip().upper()
+        if not raw:
+            return None
+        if str(ticker_raw).replace('.', '').isdigit():
+            symbol_int = int(float(ticker_raw))
+            return f"{symbol_int:04d}.HK"
+        return raw
+
     def post(self, request):
         user = request.user
         file = request.FILES.get('file')
         if not file:
             return Response({"error": "No file uploaded"}, status=400)
-        
-        # 讀取 CSV 內容
+
         try:
             decoded_file = file.read().decode('utf-8')
             io_string = io.StringIO(decoded_file)
             reader = csv.DictReader(io_string)
+            rows = list(reader)
         except Exception as e:
             return Response({"error": f"Failed to read CSV file: {str(e)}"}, status=400)
-        
+
+        # 偵測格式：有 Ticker 欄位則用「一行來回」格式
+        if not rows:
+            return Response({"message": "Successfully imported 0 transactions", "count": 0}, status=status.HTTP_200_OK)
+
+        first_row = rows[0]
+        has_ticker_format = 'Ticker' in first_row and ('買入價' in first_row or '買入時間' in first_row)
+
         count_created = 0
         errors = []
-        
-        for row_num, row in enumerate(reader, start=2):  # 從第2行開始（第1行是header）
-            try:
-                # 解析 CSV 行並創建交易
-                # 注意：這裡需要根據實際 CSV 格式調整
-                symbol = row.get('symbol', '').strip().upper()
-                if not symbol:
-                    continue
-                
-                # 獲取或創建資產（不需要保存公司名稱，從緩存中獲取即可）
-                # 如果緩存中沒有，嘗試通過 yfinance 獲取並添加到緩存
-                from .services import load_stock_list_cache, validate_symbol_with_yfinance, add_stock_to_cache
-                cache_data = load_stock_list_cache()
-                stocks = cache_data.get('stocks', [])
-                cached_stock = next((s for s in stocks if s.get('symbol') == symbol), None)
-                
-                # 如果緩存中沒有，嘗試通過 yfinance 獲取並添加到緩存
-                if not cached_stock:
+
+        if has_ticker_format:
+            # 格式：Ticker, 股數, 買入價, 賣出價, 買入時間, 賣出時間（一行拆成 BUY + SELL）
+            for row_num, row in enumerate(rows, start=2):
+                try:
+                    ticker_raw = row.get('Ticker')
+                    if ticker_raw is None or str(ticker_raw).strip() == '':
+                        continue
+
+                    symbol = self._normalize_symbol(ticker_raw)
+                    if not symbol:
+                        continue
+
+                    currency = 'HKD' if '.HK' in symbol else 'USD'
+                    asset, _ = Asset.objects.get_or_create(symbol=symbol, defaults={'currency': currency})
+
+                    try:
+                        quantity = float(row.get('股數', 0) or 0)
+                        buy_price = float(row.get('買入價', 0) or 0)
+                        sell_price = float(row.get('賣出價', 0) or 0)
+                    except (ValueError, TypeError):
+                        errors.append(f"Row {row_num}: Invalid 股數/買入價/賣出價")
+                        continue
+
+                    buy_date = self._parse_date(row.get('買入時間', ''))
+                    sell_date = self._parse_date(row.get('賣出時間', ''))
+
+                    if buy_date and buy_price > 0:
+                        Transaction.objects.create(
+                            user=user,
+                            asset=asset,
+                            action='BUY',
+                            date=buy_date,
+                            price=Decimal(str(buy_price)),
+                            quantity=Decimal(str(quantity)),
+                            fees=Decimal('0'),
+                        )
+                        count_created += 1
+                    if sell_date and sell_price > 0:
+                        Transaction.objects.create(
+                            user=user,
+                            asset=asset,
+                            action='SELL',
+                            date=sell_date,
+                            price=Decimal(str(sell_price)),
+                            quantity=Decimal(str(quantity)),
+                            fees=Decimal('0'),
+                        )
+                        count_created += 1
+                except Exception as e:
+                    errors.append(f"Row {row_num}: {str(e)}")
+        else:
+            # 舊格式：symbol, action, date, price, quantity, fees
+            for row_num, row in enumerate(rows, start=2):
+                try:
+                    symbol = (row.get('symbol') or '').strip().upper()
+                    if not symbol:
+                        continue
+                    from .services import validate_symbol_with_yfinance, add_stock_to_cache
                     try:
                         is_valid, symbol_normalized, name, currency, _ = validate_symbol_with_yfinance(symbol)
                         if is_valid:
                             add_stock_to_cache(symbol_normalized, name, currency)
-                    except:
-                        pass  # 如果獲取失敗，繼續
-                
-                asset, created = Asset.objects.get_or_create(symbol=symbol)
-                
-                # 創建交易記錄（需要根據實際 CSV 格式調整）
-                # 這裡只是示例，實際需要根據 CSV 格式解析
-                transaction = Transaction.objects.create(
-                    user=user,  # 確保關聯到當前用戶
-                    asset=asset,
-                    action=row.get('action', 'BUY'),
-                    date=row.get('date', timezone.now().date()),
-                    price=Decimal(row.get('price', 0)),
-                    quantity=Decimal(row.get('quantity', 0)),
-                    fees=Decimal(row.get('fees', 0)),
-                )
-                count_created += 1
-            except Exception as e:
-                errors.append(f"Row {row_num}: {str(e)}")
-        
+                            symbol = symbol_normalized
+                    except Exception:
+                        pass
+                    asset, _ = Asset.objects.get_or_create(symbol=symbol)
+                    action = (row.get('action') or 'BUY').strip().upper()
+                    if action not in ('BUY', 'SELL', 'DIVIDEND'):
+                        action = 'BUY'
+                    date_str = row.get('date') or ''
+                    dt = self._parse_date(date_str) if date_str else timezone.now().date()
+                    price = Decimal(row.get('price') or 0)
+                    quantity = Decimal(row.get('quantity') or 0)
+                    fees = Decimal(row.get('fees') or 0)
+                    Transaction.objects.create(
+                        user=user,
+                        asset=asset,
+                        action=action,
+                        date=dt,
+                        price=price,
+                        quantity=quantity,
+                        fees=fees,
+                    )
+                    count_created += 1
+                except Exception as e:
+                    errors.append(f"Row {row_num}: {str(e)}")
+
         response_data = {
             "message": f"Successfully imported {count_created} transactions",
-            "count": count_created
+            "count": count_created,
         }
-        
         if errors:
             response_data["errors"] = errors
-        
         return Response(response_data, status=status.HTTP_200_OK)
 
 # 3. 更新所有資產的價格（只更新當前用戶有交易的資產）
@@ -390,20 +467,38 @@ class TransactionListView(APIView):
         
         # 獲取過濾參數
         action = request.query_params.get('action', None)  # BUY, SELL, DIVIDEND, DEPOSIT, WITHDRAW
-        date_range = request.query_params.get('date_range', '7d')  # 7d, 30d, 90d, all
+        date_range = request.query_params.get('date_range', '7d')  # 7d, 30d, 90d, all, custom
+        start_date_param = request.query_params.get('start_date', None)  # YYYY-MM-DD
+        end_date_param = request.query_params.get('end_date', None)  # YYYY-MM-DD
         symbol = request.query_params.get('symbol', None)
-        
-        # 計算日期範圍（默認最近7天）
-        today = timezone.now().date()
-        if date_range == '7d':
-            start_date = today - timedelta(days=7)
-        elif date_range == '30d':
-            start_date = today - timedelta(days=30)
-        elif date_range == '90d':
-            start_date = today - timedelta(days=90)
-        else:  # 'all'
-            start_date = None
-        
+
+        # 自訂日期範圍：若有 start_date 與 end_date 則優先使用
+        start_date = None
+        end_date = None
+        if start_date_param and end_date_param:
+            try:
+                start_date = datetime.strptime(start_date_param, "%Y-%m-%d").date()
+                end_date = datetime.strptime(end_date_param, "%Y-%m-%d").date()
+                if start_date > end_date:
+                    start_date, end_date = end_date, start_date
+            except ValueError:
+                pass
+        if start_date is None or end_date is None:
+            # 計算日期範圍（默認最近7天）
+            today = timezone.now().date()
+            if date_range == '7d':
+                start_date = today - timedelta(days=7)
+                end_date = today
+            elif date_range == '30d':
+                start_date = today - timedelta(days=30)
+                end_date = today
+            elif date_range == '90d':
+                start_date = today - timedelta(days=90)
+                end_date = today
+            else:  # 'all' or unknown
+                start_date = None
+                end_date = None
+
         # 獲取交易記錄
         transactions = Transaction.objects.filter(
             user=user
@@ -415,9 +510,12 @@ class TransactionListView(APIView):
         )
         
         # 應用日期過濾
-        if start_date:
+        if start_date is not None:
             transactions = transactions.filter(date__gte=start_date)
             cashflows = cashflows.filter(date__gte=start_date)
+        if end_date is not None:
+            transactions = transactions.filter(date__lte=end_date)
+            cashflows = cashflows.filter(date__lte=end_date)
         
         # 應用 action 過濾
         if action:
@@ -861,3 +959,116 @@ class MonthlyTrackingYearsView(APIView):
                 {"error": f"Failed to fetch available years: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class DailySnapshotView(APIView):
+    """
+    獲取每日投資組合快照
+    用於前端顯示「今日變動」的基準，以及未來做歷史數據分析
+    
+    GET /api/daily-snapshot/?date=YYYY-MM-DD
+    - date: 快照日期，預設為今日
+    - 返回該日期的 snapshot，若不存在則返回 null
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        user = request.user
+        date_str = request.query_params.get('date', 'today')
+        
+        # 解析日期
+        if date_str == 'today':
+            target_date = timezone.now().date()
+        else:
+            try:
+                target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            except ValueError:
+                return Response(
+                    {"error": "Invalid date format. Use YYYY-MM-DD or 'today'"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        # 查找快照
+        try:
+            snapshot = DailySnapshot.objects.get(user=user, date=target_date)
+            return Response({
+                'snapshot': {
+                    'date': snapshot.date.strftime('%Y-%m-%d'),
+                    'net_liquidity': float(snapshot.net_liquidity),
+                    'current_cash': float(snapshot.current_cash),
+                    'cash_usd': float(snapshot.cash_usd),
+                    'cash_hkd': float(snapshot.cash_hkd),
+                    'total_market_value': float(snapshot.total_market_value),
+                    'total_invested': float(snapshot.total_invested),
+                    'net_profit': float(snapshot.net_profit),
+                    'roi_percentage': float(snapshot.roi_percentage),
+                    'exchange_rate': float(snapshot.exchange_rate),
+                    'positions': snapshot.positions
+                }
+            })
+        except DailySnapshot.DoesNotExist:
+            return Response({
+                'snapshot': None,
+                'message': f'No snapshot found for {target_date}'
+            })
+
+
+class DailySnapshotHistoryView(APIView):
+    """
+    獲取歷史快照列表
+    用於未來做歷史走勢圖、回報率分析等
+    
+    GET /api/daily-snapshot/history/?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD&limit=30
+    - start_date: 開始日期（選填）
+    - end_date: 結束日期（選填）
+    - limit: 限制返回數量（預設 30 天）
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        user = request.user
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        limit = int(request.query_params.get('limit', 30))
+        
+        # 查詢快照
+        snapshots = DailySnapshot.objects.filter(user=user)
+        
+        if start_date:
+            try:
+                start = datetime.strptime(start_date, '%Y-%m-%d').date()
+                snapshots = snapshots.filter(date__gte=start)
+            except ValueError:
+                return Response(
+                    {"error": "Invalid start_date format. Use YYYY-MM-DD"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        if end_date:
+            try:
+                end = datetime.strptime(end_date, '%Y-%m-%d').date()
+                snapshots = snapshots.filter(date__lte=end)
+            except ValueError:
+                return Response(
+                    {"error": "Invalid end_date format. Use YYYY-MM-DD"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        # 限制數量並排序
+        snapshots = snapshots.order_by('-date')[:limit]
+        
+        # 序列化
+        data = [{
+            'date': snapshot.date.strftime('%Y-%m-%d'),
+            'net_liquidity': float(snapshot.net_liquidity),
+            'current_cash': float(snapshot.current_cash),
+            'total_market_value': float(snapshot.total_market_value),
+            'total_invested': float(snapshot.total_invested),
+            'net_profit': float(snapshot.net_profit),
+            'roi_percentage': float(snapshot.roi_percentage),
+        } for snapshot in snapshots]
+        
+        return Response({
+            'snapshots': data,
+            'count': len(data)
+        })

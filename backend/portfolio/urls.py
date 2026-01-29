@@ -16,7 +16,9 @@ from .views import (
     PortfolioHistoryView,
     StockHistoryView,
     MonthlyTrackingView,
-    MonthlyTrackingYearsView
+    MonthlyTrackingYearsView,
+    DailySnapshotView,
+    DailySnapshotHistoryView
 )
 
 urlpatterns = [
@@ -37,4 +39,6 @@ urlpatterns = [
     path('stock-history/', StockHistoryView.as_view(), name='stock-history'),
     path('monthly-tracking/', MonthlyTrackingView.as_view(), name='monthly-tracking'),
     path('monthly-tracking-years/', MonthlyTrackingYearsView.as_view(), name='monthly-tracking-years'),
+    path('daily-snapshot/', DailySnapshotView.as_view(), name='daily-snapshot'),
+    path('daily-snapshot/history/', DailySnapshotHistoryView.as_view(), name='daily-snapshot-history'),
 ]

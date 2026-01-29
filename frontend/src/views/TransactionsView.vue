@@ -68,13 +68,29 @@ const deletingId = ref(null)
 
 // Filter 狀態
 const selectedAction = ref('all')  // all, BUY, SELL, DIVIDEND, DEPOSIT, WITHDRAW
-const selectedDateRange = ref('7d')  // 7d, 30d, 90d, all
+const selectedDateRange = ref('7d')  // 7d, 30d, 90d, all, custom
+const customStartDate = ref('')
+const customEndDate = ref('')
+
+function getDefaultCustomRange () {
+  const end = new Date()
+  const start = new Date()
+  start.setDate(start.getDate() - 30)
+  return {
+    start: start.toISOString().slice(0, 10),
+    end: end.toISOString().slice(0, 10)
+  }
+}
 
 const fetchTransactions = async () => {
   isLoading.value = true
   try {
-    const params = {
-      date_range: selectedDateRange.value
+    const params = {}
+    if (selectedDateRange.value === 'custom' && customStartDate.value && customEndDate.value) {
+      params.start_date = customStartDate.value
+      params.end_date = customEndDate.value
+    } else {
+      params.date_range = selectedDateRange.value
     }
     if (selectedAction.value !== 'all') {
       params.action = selectedAction.value
@@ -98,7 +114,27 @@ const fetchTransactions = async () => {
 
 // 當 filter 改變時重新獲取數據
 const handleFilterChange = () => {
-  fetchTransactions()
+  if (selectedDateRange.value === 'custom') {
+    if (!customStartDate.value || !customEndDate.value) {
+      const { start, end } = getDefaultCustomRange()
+      customStartDate.value = start
+      customEndDate.value = end
+    }
+    fetchTransactions()
+  } else {
+    fetchTransactions()
+  }
+}
+
+const applyCustomDateRange = () => {
+  if (customStartDate.value && customEndDate.value) {
+    if (customStartDate.value > customEndDate.value) {
+      const swap = customStartDate.value
+      customStartDate.value = customEndDate.value
+      customEndDate.value = swap
+    }
+    fetchTransactions()
+  }
 }
 
 // 打開編輯交易表單
@@ -258,18 +294,46 @@ onMounted(() => {
               <option value="WITHDRAW">{{ t('cashflow.withdraw') }}</option>
             </select>
           </div>
-          <div class="flex items-center gap-2">
-            <label class="text-sm font-medium whitespace-nowrap">{{ t('transactions.filter.dateRange') }}:</label>
-            <select 
-              v-model="selectedDateRange" 
-              @change="handleFilterChange"
-              class="min-h-[36px] px-3 py-1.5 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring focus:ring-offset-1"
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div class="flex items-center gap-2">
+              <label class="text-sm font-medium whitespace-nowrap">{{ t('transactions.filter.dateRange') }}:</label>
+              <select 
+                v-model="selectedDateRange" 
+                @change="handleFilterChange"
+                class="min-h-[36px] px-3 py-1.5 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring focus:ring-offset-1"
+              >
+                <option value="7d">{{ t('transactions.filter.last7Days') }}</option>
+                <option value="30d">{{ t('transactions.filter.last30Days') }}</option>
+                <option value="90d">{{ t('transactions.filter.last90Days') }}</option>
+                <option value="all">{{ t('transactions.filter.allTime') }}</option>
+                <option value="custom">{{ t('transactions.filter.customRange') }}</option>
+              </select>
+            </div>
+            <!-- Custom date range: calendar inputs -->
+            <div 
+              v-if="selectedDateRange === 'custom'" 
+              class="flex flex-wrap items-center gap-2 rounded-md border border-input bg-muted/30 px-3 py-2"
             >
-              <option value="7d">{{ t('transactions.filter.last7Days') }}</option>
-              <option value="30d">{{ t('transactions.filter.last30Days') }}</option>
-              <option value="90d">{{ t('transactions.filter.last90Days') }}</option>
-              <option value="all">{{ t('transactions.filter.allTime') }}</option>
-            </select>
+              <label class="text-xs font-medium text-muted-foreground">{{ t('transactions.filter.from') }}</label>
+              <input 
+                v-model="customStartDate" 
+                type="date" 
+                class="min-h-[36px] flex-1 min-w-[120px] rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring text-foreground"
+              />
+              <label class="text-xs font-medium text-muted-foreground">{{ t('transactions.filter.to') }}</label>
+              <input 
+                v-model="customEndDate" 
+                type="date" 
+                class="min-h-[36px] flex-1 min-w-[120px] rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring text-foreground"
+              />
+              <Button 
+                size="sm" 
+                @click="applyCustomDateRange"
+                class="min-h-[36px]"
+              >
+                {{ t('transactions.filter.apply') }}
+              </Button>
+            </div>
           </div>
         </div>
       </div>

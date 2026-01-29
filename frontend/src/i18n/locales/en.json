@@ -32,6 +32,7 @@
     "netProfit": "Net Profit",
     "totalAssets": "Total Assets",
     "netLiquidity": "Net Liquidity",
+    "today": "Today",
     "netLiquidityDescription": "Total market value + cash (what you actually own)",
     "grossPosition": "Gross Position",
     "grossPositionDescription": "Long + Short absolute value (how much you're playing)",
@@ -146,7 +147,11 @@
       "last7Days": "Last 7 Days",
       "last30Days": "Last 30 Days",
       "last90Days": "Last 90 Days",
-      "allTime": "All Time"
+      "allTime": "All Time",
+      "customRange": "Custom...",
+      "from": "From",
+      "to": "To",
+      "apply": "Apply"
     }
   },
   "assets": {

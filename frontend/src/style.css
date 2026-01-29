@@ -165,3 +165,14 @@ h1 {
     touch-action: pan-x pan-y;
   }
 }
+
+/* Dark theme: native date/datetime inputs – calendar icon and text visible */
+.dark input[type="date"]::-webkit-calendar-picker-indicator,
+.dark input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.8;
+}
+.dark input[type="date"]::-webkit-date-and-time-value,
+.dark input[type="datetime-local"]::-webkit-date-and-time-value {
+  color: inherit;
+}

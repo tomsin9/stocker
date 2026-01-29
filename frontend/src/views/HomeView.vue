@@ -47,10 +47,13 @@ const lastUpdated = ref(null)
 const activeSummaryTab = ref('summary') // 'summary', 'allocation', 'performance'
 const loadedCharts = ref(new Set(['summary'])) // 追蹤已載入的圖表
 const isLargeScreen = ref(false) // 用於判斷是否為大屏幕
+const netLiquidityStartOfDay = ref(null) // 當日首次載入時的淨資產（用於計算 Today 變動）
+const cashStartOfDay = ref(null) // 當日首次載入時的現金（用於令淨資產今日 = 持倉今日加總 + 現金變動）
+const positionSodMap = ref({}) // 各持倉當日首次載入時的市值 { [symbol]: number }（與淨資產同一 snapshot）
 
 // 計算表格列數（用於 colspan）
 const tableColspan = computed(() => {
-  return isLargeScreen.value ? 9 : 8
+  return isLargeScreen.value ? 10 : 9
 })
 
 // 抓取後端 FIFO 計算後的數據
@@ -77,6 +80,73 @@ const fetchData = async () => {
     }
     const localeString = locale.value === 'zh-HK' ? 'zh-HK' : 'en-US'
     lastUpdated.value = new Date().toLocaleTimeString(localeString, { hour: '2-digit', minute: '2-digit' })
+    
+    // 今日基準：優先用後端 daily snapshot，fallback 到 localStorage
+    const today = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD 本地
+    const currentNet = summary.value.net_liquidity ?? 0
+    const currentCash = summary.value.current_cash ?? 0
+    const positionsNow = Object.fromEntries((portfolio.value || []).map(p => [p.symbol, p.current_market_value ?? 0]))
+    
+    try {
+      // 1. 先嘗試從後端獲取今日 snapshot
+      const snapshotResponse = await api.get('/daily-snapshot/?date=today')
+      if (snapshotResponse.data.snapshot) {
+        const snap = snapshotResponse.data.snapshot
+        netLiquidityStartOfDay.value = snap.net_liquidity
+        cashStartOfDay.value = snap.current_cash
+        positionSodMap.value = snap.positions || {}
+      } else {
+        // 2. 後端沒有 snapshot，fallback 到 localStorage
+        const storageKey = 'tom_stocker_sod_' + today
+        const stored = localStorage.getItem(storageKey)
+        if (stored !== null && stored !== '') {
+          const snap = JSON.parse(stored)
+          if (snap && typeof snap.net_liquidity === 'number') {
+            netLiquidityStartOfDay.value = snap.net_liquidity
+            cashStartOfDay.value = typeof snap.current_cash === 'number' ? snap.current_cash : currentCash
+            positionSodMap.value = snap.positions && typeof snap.positions === 'object' ? { ...snap.positions } : {}
+          }
+        }
+        // 3. localStorage 也沒有，用當前數據並存入 localStorage
+        if (netLiquidityStartOfDay.value === null) {
+          const sumMv = (portfolio.value || []).reduce((s, p) => s + (p.current_market_value ?? 0), 0)
+          netLiquidityStartOfDay.value = sumMv + currentCash
+          cashStartOfDay.value = currentCash
+          positionSodMap.value = { ...positionsNow }
+          localStorage.setItem(storageKey, JSON.stringify({
+            net_liquidity: netLiquidityStartOfDay.value,
+            current_cash: cashStartOfDay.value,
+            positions: positionSodMap.value
+          }))
+        }
+      }
+    } catch (err) {
+      // API 錯誤，fallback 到 localStorage
+      console.warn('Failed to fetch daily snapshot, using localStorage:', err)
+      const storageKey = 'tom_stocker_sod_' + today
+      try {
+        const stored = localStorage.getItem(storageKey)
+        if (stored !== null && stored !== '') {
+          const snap = JSON.parse(stored)
+          if (snap && typeof snap.net_liquidity === 'number') {
+            netLiquidityStartOfDay.value = snap.net_liquidity
+            cashStartOfDay.value = typeof snap.current_cash === 'number' ? snap.current_cash : currentCash
+            positionSodMap.value = snap.positions && typeof snap.positions === 'object' ? { ...snap.positions } : {}
+          }
+        }
+        if (netLiquidityStartOfDay.value === null) {
+          netLiquidityStartOfDay.value = currentNet
+          cashStartOfDay.value = currentCash
+          positionSodMap.value = { ...positionsNow }
+        }
+      } catch (_) {
+        if (netLiquidityStartOfDay.value === null) {
+          netLiquidityStartOfDay.value = currentNet
+          cashStartOfDay.value = currentCash
+          positionSodMap.value = { ...positionsNow }
+        }
+      }
+    }
   } catch (error) {
     console.error(t('messages.fetchError'), error)
   } finally {
@@ -132,6 +202,34 @@ const totalReturnPercent = computed(() => {
   if (totalCost.value === 0) return 0
   return (totalReturn.value / totalCost.value) * 100
 })
+
+// 今日淨資產變動 = 持倉今日加總 + 現金變動，與下方各持倉「今日」加總一致
+const netLiquidityTodayChange = computed(() => {
+  if (netLiquidityStartOfDay.value === null || cashStartOfDay.value === null) return 0
+  const positionChange = (portfolio.value || []).reduce(
+    (sum, p) => sum + ((p.current_market_value ?? 0) - (positionSodMap.value[p.symbol] ?? p.current_market_value ?? 0)),
+    0
+  )
+  const cashChange = (summary.value.current_cash ?? 0) - cashStartOfDay.value
+  return positionChange + cashChange
+})
+const netLiquidityTodayChangePct = computed(() => {
+  const sod = netLiquidityStartOfDay.value
+  if (sod === null || sod === 0) return 0
+  return (netLiquidityTodayChange.value / sod) * 100
+})
+
+// 單一持倉當日市值變動（與當日首次載入時比較）
+const getPositionTodayChange = (item) => {
+  const sod = positionSodMap.value[item.symbol]
+  if (sod === undefined || sod === null) return 0
+  return (item.current_market_value ?? 0) - sod
+}
+const getPositionTodayChangePct = (item) => {
+  const sod = positionSodMap.value[item.symbol]
+  if (sod === undefined || sod === null || sod === 0) return 0
+  return (getPositionTodayChange(item) / sod) * 100
+}
 
 // 獲取匯率（優先使用 exchange_rate）
 const getExchangeRate = () => {
@@ -581,6 +679,17 @@ onUnmounted(() => {
                       ≈ ${{ new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format((summary.net_liquidity || 0) / getExchangeRate()) }}
                     </span>
                   </div>
+                  <div
+                    v-if="netLiquidityStartOfDay !== null"
+                    :class="[
+                      'text-xs sm:text-sm mt-1',
+                      netLiquidityTodayChange >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                    ]"
+                  >
+                    {{ t('dashboard.today') }}
+                    {{ netLiquidityTodayChange >= 0 ? '+' : '' }}{{ formatCurrencyFull(netLiquidityTodayChange) }}
+                    ({{ netLiquidityTodayChangePct >= 0 ? '+' : '' }}{{ netLiquidityTodayChangePct.toFixed(2) }}%)
+                  </div>
                 </div>
 
                 <!-- 右側：3 欄網格 -->
@@ -710,6 +819,7 @@ onUnmounted(() => {
                       <TableHead class="text-right w-[90px] md:w-[100px] lg:w-[110px] whitespace-nowrap">{{ t('dashboard.currentPrice') }}</TableHead>
                       <TableHead class="text-right w-[100px] hidden lg:table-cell whitespace-nowrap">{{ t('dashboard.totalCost') }}</TableHead>
                       <TableHead class="text-right w-[100px] md:w-[110px] lg:w-[120px] whitespace-nowrap">{{ t('dashboard.totalMarketValue') }}</TableHead>
+                      <TableHead class="text-right w-[90px] md:w-[100px] whitespace-nowrap">{{ t('dashboard.today') }}</TableHead>
                       <TableHead class="text-right w-[100px] md:w-[110px] lg:w-[120px] whitespace-nowrap">{{ t('dashboard.unrealizedPLShort') }}</TableHead>
                       <TableHead class="text-right w-[90px] md:w-[100px] whitespace-nowrap">{{ t('dashboard.returnRate') }}</TableHead>
                       <TableHead class="text-center w-[60px] md:w-[70px] lg:w-[80px] sticky right-0 bg-background z-10">{{ t('common.actions') }}</TableHead>
@@ -780,6 +890,24 @@ onUnmounted(() => {
                       <!-- 市值顯示原始幣種 -->
                       <div class="text-sm whitespace-nowrap">{{ formatCurrency(convertFromUsd(item.current_market_value || 0, item.currency), item.currency) }}</div>
                       <div class="text-[10px] md:text-xs text-muted-foreground font-medium">{{ item.currency || 'USD' }}</div>
+                    </TableCell>
+                    <TableCell class="text-right">
+                      <div
+                        :class="[
+                          'text-xs font-semibold whitespace-nowrap',
+                          getPositionTodayChange(item) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                        ]"
+                      >
+                        {{ getPositionTodayChange(item) >= 0 ? '+' : '' }}{{ formatCurrency(convertFromUsd(Math.abs(getPositionTodayChange(item)), item.currency), item.currency) }}
+                      </div>
+                      <div
+                        :class="[
+                          'text-[10px] md:text-xs font-medium',
+                          getPositionTodayChangePct(item) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                        ]"
+                      >
+                        ({{ getPositionTodayChangePct(item) >= 0 ? '+' : '' }}{{ getPositionTodayChangePct(item).toFixed(2) }}%)
+                      </div>
                     </TableCell>
                     <TableCell class="text-right">
                       <div 
@@ -923,6 +1051,20 @@ onUnmounted(() => {
                         {{ formatCurrency(convertFromUsd(item.current_market_value || 0, item.currency), item.currency) }}
                       </div>
                       <div class="text-xs text-muted-foreground font-medium">{{ item.currency || 'USD' }}</div>
+                    </div>
+                    <div class="text-sm text-muted-foreground">
+                      {{ t('dashboard.today') }}:
+                    </div>
+                    <div class="text-right">
+                      <div
+                        :class="[
+                          'text-sm font-semibold',
+                          getPositionTodayChange(item) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                        ]"
+                      >
+                        {{ getPositionTodayChange(item) >= 0 ? '+' : '' }}{{ formatCurrency(convertFromUsd(Math.abs(getPositionTodayChange(item)), item.currency), item.currency) }}
+                        ({{ getPositionTodayChangePct(item) >= 0 ? '+' : '' }}{{ getPositionTodayChangePct(item).toFixed(2) }}%)
+                      </div>
                     </div>
                   </div>
                   <div class="mt-3 pt-3 border-t">

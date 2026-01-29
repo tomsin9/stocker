@@ -189,4 +189,95 @@ class CashFlow(models.Model):
     
     def __str__(self):
         return f"{self.date} - {self.type} ${self.amount}"
+
+
+class DailySnapshot(models.Model):
+    """
+    每日投資組合快照
+    用於追蹤歷史淨資產、回報率等，並作為「今日變動」的基準
+    """
+    user = models.ForeignKey(
+        User, 
+        on_delete=models.CASCADE, 
+        related_name='daily_snapshots',
+        help_text="擁有此快照的用戶"
+    )
+    date = models.DateField(
+        help_text="快照日期"
+    )
+    
+    # 淨資產與現金
+    net_liquidity = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2,
+        help_text="淨資產（總市值 + 總現金）"
+    )
+    current_cash = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2,
+        help_text="可用現金（USD 基準）"
+    )
+    cash_usd = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2,
+        default=0.0,
+        help_text="USD 現金餘額"
+    )
+    cash_hkd = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2,
+        default=0.0,
+        help_text="HKD 現金餘額"
+    )
+    
+    # 市值與投入本金
+    total_market_value = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2,
+        help_text="總持倉市值"
+    )
+    total_invested = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2,
+        help_text="總投入本金"
+    )
+    
+    # 回報
+    net_profit = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2,
+        help_text="淨利潤"
+    )
+    roi_percentage = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2,
+        help_text="總回報率 (%)"
+    )
+    
+    # 匯率
+    exchange_rate = models.DecimalField(
+        max_digits=10, 
+        decimal_places=4,
+        help_text="USD/HKD 匯率"
+    )
+    
+    # 各持倉詳情 (JSON)
+    positions = models.JSONField(
+        default=dict,
+        help_text="各持倉快照 { symbol: { quantity, current_market_value, avg_cost, ... } }"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ('user', 'date')
+        ordering = ['-date']
+        indexes = [
+            models.Index(fields=['user', 'date']),
+        ]
+        verbose_name = "Daily Snapshot"
+        verbose_name_plural = "Daily Snapshots"
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.date}: ${self.net_liquidity}"
     
