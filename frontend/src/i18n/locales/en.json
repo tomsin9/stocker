@@ -60,6 +60,7 @@
     "fifoInventory": "FIFO Inventory",
     "selectAction": "Select an action to perform",
     "importCSVDescription": "Import transaction records from CSV file",
+    "downloadCSVTemplate": "Download template",
     "summary": "Summary",
     "portfolioOverview": "Portfolio Overview",
     "summaryDescription": "Portfolio overview and statistics",

@@ -4,17 +4,44 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Globe, Moon, Sun, DollarSign, ArrowLeft, LogOut, Info } from 'lucide-vue-next'
+import { Globe, Moon, Sun, DollarSign, ArrowLeft, LogOut, Info, Upload, Download } from 'lucide-vue-next'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { injectCurrency } from '@/composables/useCurrency'
 import { useTheme } from '@/composables/useTheme'
 import BottomNavigation from '@/components/BottomNavigation.vue'
+import api from '@/api'
+import ImportCSVSheet from '@/components/ImportCSVSheet.vue'
 import { APP_INFO } from '@/config/app'
 
 const { locale, t } = useI18n()
 const router = useRouter()
 const { currentCurrency, switchCurrency } = injectCurrency()
 const { theme, toggleTheme } = useTheme()
+
+const showImportSheet = ref(false)
+const handleImportSuccess = () => {
+  window.dispatchEvent(new CustomEvent('dashboardRefresh'))
+}
+
+const isDownloadingTemplate = ref(false)
+const downloadTemplate = async () => {
+  if (isDownloadingTemplate.value) return
+  isDownloadingTemplate.value = true
+  try {
+    const { data } = await api.get('/trades-csv-template/', { responseType: 'blob' })
+    const url = URL.createObjectURL(new Blob([data]))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'trades_csv_template.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    console.error(e)
+    alert(e.response?.data?.error || 'Download failed')
+  } finally {
+    isDownloadingTemplate.value = false
+  }
+}
 
 const toggleLocale = () => {
   const newLocale = locale.value === 'zh-HK' ? 'en' : 'zh-HK'
@@ -114,6 +141,32 @@ const showAboutDialog = ref(false)
           </CardContent>
         </Card>
 
+        <Card>
+          <CardHeader>
+            <CardTitle>{{ t('dashboard.importCSV') }}</CardTitle>
+            <CardDescription>{{ t('dashboard.importCSVDescription') }}</CardDescription>
+          </CardHeader>
+          <CardContent class="flex flex-col gap-3 lg:flex-row lg:gap-4">
+            <Button 
+              variant="outline" 
+              class="w-full justify-start min-h-[44px] active:scale-95 lg:flex-1"
+              @click="showImportSheet = true"
+            >
+              <Upload class="h-4 w-4 mr-2" />
+              {{ t('dashboard.importCSV') }}
+            </Button>
+            <Button 
+              variant="outline" 
+              class="w-full justify-start min-h-[44px] active:scale-95 lg:flex-1"
+              :disabled="isDownloadingTemplate"
+              @click="downloadTemplate"
+            >
+              <Download class="h-4 w-4 mr-2" />
+              {{ t('dashboard.downloadCSVTemplate') }}
+            </Button>
+          </CardContent>
+        </Card>
+
         <!-- About & License -->
         <Card>
           <CardHeader>
@@ -151,6 +204,12 @@ const showAboutDialog = ref(false)
 
       </div>
     </div>
+
+    <!-- Import CSV Sheet -->
+    <ImportCSVSheet 
+      v-model:open="showImportSheet"
+      @success="handleImportSuccess"
+    />
 
     <!-- About Dialog -->
     <Dialog v-model:open="showAboutDialog">

@@ -5,7 +5,7 @@ import api from '@/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { RefreshCw, Plus, Upload, TrendingUp, TrendingDown, ArrowDownCircle, ArrowUpCircle, Eye } from 'lucide-vue-next'
+import { RefreshCw, Plus, TrendingUp, TrendingDown, ArrowDownCircle, ArrowUpCircle, Eye } from 'lucide-vue-next'
 import { cn } from '@/lib/utils'
 import { injectCurrency } from '@/composables/useCurrency'
 import BottomNavigation from '@/components/BottomNavigation.vue'
@@ -13,7 +13,6 @@ import BottomNavigation from '@/components/BottomNavigation.vue'
 import AssetAllocationChart from '@/components/charts/AssetAllocationChart.vue'
 import StockPerformanceChart from '@/components/charts/StockPerformanceChart.vue'
 import AddTransactionSheet from '@/components/AddTransactionSheet.vue'
-import ImportCSVSheet from '@/components/ImportCSVSheet.vue'
 import DepositSheet from '@/components/DepositSheet.vue'
 import WithdrawSheet from '@/components/WithdrawSheet.vue'
 import TransactionsDialog from '@/components/TransactionsDialog.vue'
@@ -386,7 +385,6 @@ const filteredPortfolio = computed(() => {
 const showAddModal = ref(false)
 const showDepositModal = ref(false)
 const showWithdrawModal = ref(false)
-const showImportModal = ref(false)
 const showTransactionsModal = ref(false)
 const selectedSymbol = ref('')
 
@@ -396,10 +394,6 @@ const handleTransactionSuccess = async () => {
 }
 
 const handleCashFlowSuccess = async () => {
-  await fetchData()
-}
-
-const handleImportSuccess = async () => {
   await fetchData()
 }
 
@@ -419,61 +413,6 @@ const handleOpenDeposit = () => {
 
 const handleOpenWithdraw = () => {
   showWithdrawModal.value = true
-}
-
-const handleOpenImport = () => {
-  showImportModal.value = true
-}
-
-// 桌面版直接上傳 CSV（不使用 modal）
-const handleFileUpload = async (event) => {
-  const file = event.target.files[0]
-  if (!file) return
-  
-  const formData = new FormData()
-  formData.append('file', file)
-  try {
-    await api.post('/import-csv/', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
-    })
-    await fetchData()
-    alert(t('messages.importSuccess'))
-  } catch (e) { 
-    console.error(e)
-    const errorMessage = e.response?.data?.detail || 
-                        e.response?.data?.error || 
-                        e.response?.data?.message ||
-                        e.message || 
-                        t('messages.uploadError')
-    alert(`${t('messages.uploadError')}: ${errorMessage}`)
-  }
-}
-
-const handleImportCSV = async (event) => {
-  const file = event.detail?.file
-  if (!file) return
-  
-  const formData = new FormData()
-  formData.append('file', file)
-  try {
-    await api.post('/import-csv/', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
-    })
-    await fetchData()
-    alert(t('messages.importSuccess'))
-  } catch (e) { 
-    console.error(e)
-    const errorMessage = e.response?.data?.detail || 
-                        e.response?.data?.error || 
-                        e.response?.data?.message ||
-                        e.message || 
-                        t('messages.uploadError')
-    alert(`${t('messages.uploadError')}: ${errorMessage}`)
-  }
 }
 
 // 打開交易列表 modal
@@ -519,7 +458,7 @@ onMounted(() => {
   window.addEventListener('openAddTransaction', handleOpenAddTransaction)
   window.addEventListener('openDeposit', handleOpenDeposit)
   window.addEventListener('openWithdraw', handleOpenWithdraw)
-  window.addEventListener('openImport', handleOpenImport)
+  window.addEventListener('dashboardRefresh', fetchData)
 })
 
 onUnmounted(() => {
@@ -527,8 +466,7 @@ onUnmounted(() => {
   window.removeEventListener('openAddTransaction', handleOpenAddTransaction)
   window.removeEventListener('openDeposit', handleOpenDeposit)
   window.removeEventListener('openWithdraw', handleOpenWithdraw)
-  window.removeEventListener('openImport', handleOpenImport)
-  window.removeEventListener('importCSV', handleImportCSV)
+  window.removeEventListener('dashboardRefresh', fetchData)
 })
 </script>
 
@@ -589,24 +527,6 @@ onUnmounted(() => {
                 <span class="hidden lg:inline">{{ t('dashboard.withdrawFunds') }}</span>
                 <span class="lg:hidden">{{ t('dashboard.withdrawFunds').split(' ')[0] }}</span>
               </Button>
-              <label class="cursor-pointer flex-shrink-0">
-                <Button 
-                  variant="outline" 
-                  as="span"
-                  size="default"
-                  class="min-h-[44px] active:scale-95"
-                >
-                  <Upload class="h-4 w-4 md:mr-2" />
-                  <span class="hidden lg:inline">{{ t('dashboard.importCSV') }}</span>
-                  <span class="lg:hidden">{{ t('dashboard.importCSV').split(' ')[0] }}</span>
-                </Button>
-                <input 
-                  type="file" 
-                  class="hidden" 
-                  @change="handleFileUpload" 
-                  accept=".csv"
-                />
-              </label>
             </div>
           </div>
         </div>
@@ -1097,12 +1017,6 @@ onUnmounted(() => {
     <AddTransactionSheet 
       v-model:open="showAddModal"
       @success="handleTransactionSuccess"
-    />
-
-    <!-- CSV Import Sheet -->
-    <ImportCSVSheet 
-      v-model:open="showImportModal"
-      @success="handleImportSuccess"
     />
 
     <!-- Deposit Sheet -->

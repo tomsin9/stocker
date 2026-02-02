@@ -2,7 +2,8 @@ from django.urls import path
 from .views import (
     PortfolioDashboardView, 
     AddTransactionView, 
-    CSVImportView, 
+    CSVImportView,
+    CSVTemplateDownloadView,
     UpdatePricesView,
     CashFlowListCreateView,
     CashFlowDetailView,
@@ -27,6 +28,7 @@ urlpatterns = [
     path('transactions/', TransactionListView.as_view(), name='transaction-list'),
     path('transactions/<int:pk>/', TransactionDetailView.as_view(), name='transaction-detail'),
     path('import-csv/', CSVImportView.as_view(), name='import-csv'),
+    path('trades-csv-template/', CSVTemplateDownloadView.as_view(), name='trades-csv-template'),
     path('update-prices/', UpdatePricesView.as_view(), name='update-prices'),
     path('cashflow/', CashFlowListCreateView.as_view(), name='cashflow-list-create'),
     path('cashflow/<int:pk>/', CashFlowDetailView.as_view(), name='cashflow-detail'),

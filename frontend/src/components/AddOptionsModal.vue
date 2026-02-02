@@ -3,7 +3,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { Plus, ArrowDownCircle, ArrowUpCircle, Upload } from 'lucide-vue-next'
+import { Plus, ArrowDownCircle, ArrowUpCircle } from 'lucide-vue-next'
 import { injectAddOptions } from '@/composables/useAddOptions'
 
 const { t } = useI18n()
@@ -34,26 +34,6 @@ const handleWithdraw = () => {
   setTimeout(() => {
     window.dispatchEvent(new CustomEvent('openWithdraw'))
   }, 100)
-}
-
-const handleImportFile = async (event) => {
-  const file = event.target.files[0]
-  if (!file) return
-  
-  closeAddOptions()
-  
-  // 如果不在首頁，先導航到首頁
-  if (router.currentRoute.value.path !== '/') {
-    await router.push('/')
-    // 等待路由切換後再觸發事件
-    await new Promise(resolve => setTimeout(resolve, 200))
-  }
-  
-  // 觸發事件，讓 HomeView 處理文件上傳
-  window.dispatchEvent(new CustomEvent('importCSV', { detail: { file } }))
-  
-  // 重置 input
-  event.target.value = ''
 }
 </script>
 
@@ -105,28 +85,6 @@ const handleImportFile = async (event) => {
             <span class="text-xs text-muted-foreground">{{ t('cashflow.withdrawDescription') }}</span>
           </div>
         </Button>
-        
-        <label class="cursor-pointer">
-          <Button 
-            variant="outline"
-            size="lg"
-            as="span"
-            class="w-full min-h-[56px] justify-start active:scale-95"
-            @click="closeAddOptions"
-          >
-            <Upload class="h-5 w-5 mr-3" />
-            <div class="flex flex-col items-start">
-              <span class="font-semibold">{{ t('dashboard.importCSV') }}</span>
-              <span class="text-xs text-muted-foreground">{{ t('dashboard.importCSVDescription') }}</span>
-            </div>
-          </Button>
-          <input 
-            type="file" 
-            class="hidden" 
-            @change="handleImportFile"
-            accept=".csv"
-          />
-        </label>
       </div>
       <SheetFooter>
         <!-- <Button variant="outline" @click="closeAddOptions" class="w-full min-h-[44px] active:scale-95">{{ t('common.cancel') }}</Button> -->

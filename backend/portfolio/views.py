@@ -1,3 +1,5 @@
+from django.conf import settings
+from django.http import HttpResponse
 
 from rest_framework import status
 from rest_framework.views import APIView
@@ -152,6 +154,23 @@ class AddTransactionView(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# 2a. 下載 CSV 範本
+class CSVTemplateDownloadView(APIView):
+    """下載 trades_csv_template.csv 範本檔，供用戶填寫後匯入。權限：需要登入。"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        template_path = settings.BASE_DIR / 'trades_csv_template.csv'
+        if not template_path.exists():
+            return Response({"error": "Template file not found"}, status=404)
+        with open(template_path, 'rb') as f:
+            content = f.read()
+        response = HttpResponse(content, content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = 'attachment; filename="trades_csv_template.csv"'
+        return response
+
 
 # 2. 處理 CSV 上傳
 class CSVImportView(APIView):

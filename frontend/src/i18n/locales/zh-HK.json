@@ -60,6 +60,7 @@
     "fifoInventory": "FIFO Inventory",
     "selectAction": "選擇要執行的操作",
     "importCSVDescription": "從 CSV 檔案匯入交易紀錄",
+    "downloadCSVTemplate": "下載範本",
     "summary": "摘要",
     "portfolioOverview": "投資組合總覽",
     "summaryDescription": "投資組合概覽和統計",

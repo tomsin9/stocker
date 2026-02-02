@@ -241,12 +241,13 @@ const chartData = computed(() => {
       data: normalizedPrices,
       borderColor: color,
       backgroundColor: toHSLA(color) || color + '20',
-      tension: 0.4,
+      tension: 0, 
       fill: false,
       pointRadius: 0,
       pointHoverRadius: 4,
       borderDash: isIndex ? [5, 5] : [], // 指數使用虛線
-      borderWidth: isIndex ? 2 : 1.5
+      borderWidth: isIndex ? 2 : 1.5,
+      spanGaps: true
     }
   }).filter(d => d !== null)
 
@@ -458,6 +459,20 @@ watch(() => props.marketFilter, (newFilter) => {
       </div>
     </CardHeader>
     <CardContent>
+
+      <div v-if="isLoading" class="text-center py-8 text-muted-foreground">
+        {{ t('common.loading') }}
+      </div>
+      <div v-else-if="selectedStocks.length === 0 && !showSP500 && !showHSI" class="text-center py-8 text-muted-foreground">
+        {{ t('assets.selectStocksToCompare') }}
+      </div>
+      <div v-else-if="Object.keys(stockHistoryData).length === 0" class="text-center py-8 text-muted-foreground">
+        {{ t('assets.noHistoryData') }}
+      </div>
+      <div v-else class="h-[350px] sm:h-[300px] md:h-[400px] mb-3 sm:mb-4">
+        <Line :data="chartData" :options="chartOptions" />
+      </div>
+
       <!-- Stock Selection -->
       <div v-if="portfolio && portfolio.length > 0" class="mb-3 sm:mb-4 p-3 sm:p-4 bg-muted/50 rounded-lg">
         <div class="text-xs sm:text-sm font-medium mb-2">{{ t('assets.selectStocks') }}:</div>
@@ -503,18 +518,6 @@ watch(() => props.marketFilter, (newFilter) => {
         </div>
       </div>
 
-      <div v-if="isLoading" class="text-center py-8 text-muted-foreground">
-        {{ t('common.loading') }}
-      </div>
-      <div v-else-if="selectedStocks.length === 0 && !showSP500 && !showHSI" class="text-center py-8 text-muted-foreground">
-        {{ t('assets.selectStocksToCompare') }}
-      </div>
-      <div v-else-if="Object.keys(stockHistoryData).length === 0" class="text-center py-8 text-muted-foreground">
-        {{ t('assets.noHistoryData') }}
-      </div>
-      <div v-else class="h-[350px] sm:h-[300px] md:h-[400px]">
-        <Line :data="chartData" :options="chartOptions" />
-      </div>
     </CardContent>
   </Card>
 </template>
