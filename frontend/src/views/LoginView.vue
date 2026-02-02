@@ -228,8 +228,9 @@ const handleLogin = async () => {
       const errorMessage = err.message || '未知錯誤'
       error.value = t('login.errors.unknownError', { message: errorMessage })
     }
-    
-    console.error('Login error:', err)
+    if (import.meta.env.DEV) {
+      console.error('Login error:', err.response?.status, err.response?.data ?? err.message)
+    }
     if (turnstileSiteKey.value) resetTurnstile()
   } finally {
     loading.value = false
