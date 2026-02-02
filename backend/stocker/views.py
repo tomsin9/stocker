@@ -42,7 +42,8 @@ class TurnstileTokenObtainPairView(TokenObtainPairView):
 
     def post(self, request, *args, **kwargs):
         secret = getattr(settings, 'TURNSTILE_SECRET_KEY', None) or ''
-        if secret:
+        # Skip Turnstile in DEBUG (dev mode) or when secret not set
+        if secret and not getattr(settings, 'DEBUG', False):
             token = (
                 request.data.get('cf_turnstile_response')
                 or request.data.get('cf-turnstile-response')

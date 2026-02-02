@@ -81,7 +81,10 @@ const loading = ref(false)
 const error = ref('')
 const form = reactive({ username: '', password: '' })
 
-const turnstileSiteKey = ref(import.meta.env.VITE_TURNSTILE_SITE_KEY || '')
+// Dev mode or no key: skip Turnstile (no widget, no token sent)
+const turnstileSiteKey = ref(
+  import.meta.env.DEV ? '' : (import.meta.env.VITE_TURNSTILE_SITE_KEY || '')
+)
 const turnstileToken = ref('')
 const turnstileContainer = ref(null)
 let turnstileWidgetId = null
@@ -114,6 +117,10 @@ function resetTurnstile() {
 }
 
 onMounted(async () => {
+  if (import.meta.env.DEV) {
+    turnstileToken.value = 'skip'
+    return
+  }
   if (!turnstileSiteKey.value) {
     try {
       const res = await api.get('public-config/')
