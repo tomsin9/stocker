@@ -197,7 +197,9 @@
       "serverError": "伺服器錯誤，請稍後再試",
       "networkError": "無法連接到伺服器，請檢查網路連線",
       "unknownError": "發生錯誤：{message}",
-      "default": "登入失敗，請稍後再試"
+      "default": "登入失敗，請稍後再試",
+      "turnstileRequired": "請先完成上方驗證",
+      "turnstileFailed": "驗證失敗，請再試一次"
     }
   },
   "settings": {

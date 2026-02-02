@@ -10,7 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
-import os, environ
+import environ
 from pathlib import Path
 from datetime import timedelta
 
@@ -28,6 +28,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 env_file = BASE_DIR.parent / '.env'
 if env_file.exists():
     environ.Env.read_env(env_file)
+# 再讀取 backend/.env（例如 Turnstile Secret Key）
+backend_env = BASE_DIR / '.env'
+if backend_env.exists():
+    environ.Env.read_env(backend_env)
 
 
 # Quick-start development settings - unsuitable for production
@@ -143,11 +147,11 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 static_root_default = str(BASE_DIR / 'staticfiles')
-STATIC_ROOT = os.getenv('STATIC_ROOT', static_root_default)
-MEDIA_ROOT = os.getenv('MEDIA_ROOT', str(BASE_DIR / 'public/media'))
+STATIC_ROOT = env('STATIC_ROOT', default=static_root_default)
+MEDIA_ROOT = env('MEDIA_ROOT', default=str(BASE_DIR / 'public/media'))
 
-STATIC_URL = os.getenv('STATIC_URL', '/static/')
-MEDIA_URL = os.getenv('MEDIA_URL', '/media/')
+STATIC_URL = env('STATIC_URL', default='/static/')
+MEDIA_URL = env('MEDIA_URL', default='/media/')
 
 # 選項：啟用 WhiteNoise 的壓縮與快取功能（推薦）
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
@@ -204,3 +208,6 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
 }
+
+# Cloudflare Turnstile (login protection) – Secret Key from backend/.env
+TURNSTILE_SECRET_KEY = env('TURNSTILE_SECRET_KEY', default='')

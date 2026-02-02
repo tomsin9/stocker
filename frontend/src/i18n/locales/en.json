@@ -198,7 +198,9 @@
       "serverError": "Server error, please try again later",
       "networkError": "Unable to connect to server, please check your network connection",
       "unknownError": "An error occurred: {message}",
-      "default": "Login failed, please try again later"
+      "default": "Login failed, please try again later",
+      "turnstileRequired": "Please complete the verification above",
+      "turnstileFailed": "Verification failed, please try again"
     }
   },
   "settings": {

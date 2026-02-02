@@ -39,6 +39,10 @@
               :disabled="loading"
             />
           </div>
+          <!-- Cloudflare Turnstile widget -->
+          <div v-if="turnstileSiteKey" class="flex justify-center min-h-[65px]">
+            <div ref="turnstileContainer" id="turnstile-container"></div>
+          </div>
           <div 
             v-if="error" 
             class="text-sm text-destructive text-center min-h-[20px] py-1"
@@ -50,7 +54,7 @@
           <div v-else class="min-h-[20px]"></div>
           <Button
             type="submit"
-            :disabled="loading"
+            :disabled="loading || (!!turnstileSiteKey && !turnstileToken)"
             class="w-full min-h-[44px] active:scale-95"
           >
             {{ loading ? t('login.submitting') : t('login.submit') }}
@@ -62,7 +66,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { Button } from '@/components/ui/button'
@@ -77,12 +81,89 @@ const loading = ref(false)
 const error = ref('')
 const form = reactive({ username: '', password: '' })
 
+const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY || ''
+const turnstileToken = ref('')
+const turnstileContainer = ref(null)
+let turnstileWidgetId = null
+
+function renderTurnstile() {
+  if (!turnstileSiteKey || !turnstileContainer.value || typeof window.turnstile === 'undefined') return
+  turnstileWidgetId = window.turnstile.render(turnstileContainer.value, {
+    sitekey: turnstileSiteKey,
+    theme: 'light',
+    size: 'normal',
+    callback: (token) => {
+      turnstileToken.value = token
+    },
+    'error-callback': () => {
+      turnstileToken.value = ''
+    },
+    'expired-callback': () => {
+      turnstileToken.value = ''
+    },
+  })
+}
+
+function resetTurnstile() {
+  turnstileToken.value = ''
+  if (turnstileWidgetId != null && typeof window.turnstile !== 'undefined') {
+    try {
+      window.turnstile.reset(turnstileWidgetId)
+    } catch (_) {}
+  }
+}
+
+onMounted(() => {
+  if (!turnstileSiteKey) {
+    turnstileToken.value = 'skip'
+    return
+  }
+  if (typeof window.turnstile !== 'undefined') {
+    renderTurnstile()
+  } else {
+    window.addEventListener('load', () => {
+      if (window.turnstile && window.turnstile.ready) {
+        window.turnstile.ready(renderTurnstile)
+      } else {
+        renderTurnstile()
+      }
+    })
+    if (document.readyState === 'complete') {
+      setTimeout(() => {
+        if (window.turnstile && window.turnstile.ready) {
+          window.turnstile.ready(renderTurnstile)
+        } else {
+          renderTurnstile()
+        }
+      }, 300)
+    }
+  }
+})
+
+onUnmounted(() => {
+  if (turnstileWidgetId != null && typeof window.turnstile !== 'undefined') {
+    try {
+      window.turnstile.remove(turnstileWidgetId)
+    } catch (_) {}
+  }
+})
+
 const handleLogin = async () => {
+  if (turnstileSiteKey && !turnstileToken.value) {
+    error.value = t('login.errors.turnstileRequired')
+    return
+  }
   loading.value = true
   error.value = ''
   try {
-    // 對應 Django 的 TokenObtainPairView
-    const response = await api.post('/token/', form)
+    const payload = {
+      username: form.username,
+      password: form.password,
+    }
+    if (turnstileSiteKey && turnstileToken.value && turnstileToken.value !== 'skip') {
+      payload.cf_turnstile_response = turnstileToken.value
+    }
+    const response = await api.post('/token/', payload)
     
     // 儲存 Token 到本地
     localStorage.setItem('access_token', response.data.access)
@@ -119,8 +200,12 @@ const handleLogin = async () => {
           error.value = t('login.errors.invalidCredentials')
         }
       } else if (status === 400) {
-        // 請求格式錯誤
-        error.value = data.detail || data.error || data.message || t('login.errors.badRequest')
+        const msg = (data.detail || data.error || data.message || '').toString()
+        if (msg.toLowerCase().includes('turnstile')) {
+          error.value = t('login.errors.turnstileFailed')
+        } else {
+          error.value = msg || t('login.errors.badRequest')
+        }
       } else if (status === 500 || status >= 500) {
         // 伺服器錯誤
         error.value = t('login.errors.serverError')
@@ -137,6 +222,7 @@ const handleLogin = async () => {
     }
     
     console.error('Login error:', err)
+    if (turnstileSiteKey) resetTurnstile()
   } finally {
     loading.value = false
   }
