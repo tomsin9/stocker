@@ -19,11 +19,12 @@ from django.urls import path, include
 
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from stocker.views import TurnstileTokenObtainPairView
+from stocker.views import PublicConfigView, TurnstileTokenObtainPairView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('portfolio.urls')),
+    path('api/public-config/', PublicConfigView.as_view(), name='public_config'),
     path('api/token/', TurnstileTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ]

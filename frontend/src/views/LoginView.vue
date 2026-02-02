@@ -66,7 +66,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { Button } from '@/components/ui/button'
@@ -81,15 +81,15 @@ const loading = ref(false)
 const error = ref('')
 const form = reactive({ username: '', password: '' })
 
-const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY || ''
+const turnstileSiteKey = ref(import.meta.env.VITE_TURNSTILE_SITE_KEY || '')
 const turnstileToken = ref('')
 const turnstileContainer = ref(null)
 let turnstileWidgetId = null
 
 function renderTurnstile() {
-  if (!turnstileSiteKey || !turnstileContainer.value || typeof window.turnstile === 'undefined') return
+  if (!turnstileSiteKey.value || !turnstileContainer.value || typeof window.turnstile === 'undefined') return
   turnstileWidgetId = window.turnstile.render(turnstileContainer.value, {
-    sitekey: turnstileSiteKey,
+    sitekey: turnstileSiteKey.value,
     theme: 'light',
     size: 'normal',
     callback: (token) => {
@@ -113,8 +113,16 @@ function resetTurnstile() {
   }
 }
 
-onMounted(() => {
-  if (!turnstileSiteKey) {
+onMounted(async () => {
+  if (!turnstileSiteKey.value) {
+    try {
+      const res = await api.get('public-config/')
+      const key = res.data?.turnstile_site_key
+      if (key && typeof key === 'string') turnstileSiteKey.value = key.trim()
+    } catch (_) {}
+  }
+  await nextTick()
+  if (!turnstileSiteKey.value) {
     turnstileToken.value = 'skip'
     return
   }
@@ -149,7 +157,7 @@ onUnmounted(() => {
 })
 
 const handleLogin = async () => {
-  if (turnstileSiteKey && !turnstileToken.value) {
+  if (turnstileSiteKey.value && !turnstileToken.value) {
     error.value = t('login.errors.turnstileRequired')
     return
   }
@@ -160,7 +168,7 @@ const handleLogin = async () => {
       username: form.username,
       password: form.password,
     }
-    if (turnstileSiteKey && turnstileToken.value && turnstileToken.value !== 'skip') {
+    if (turnstileSiteKey.value && turnstileToken.value && turnstileToken.value !== 'skip') {
       payload.cf_turnstile_response = turnstileToken.value
     }
     const response = await api.post('/token/', payload)
@@ -222,7 +230,7 @@ const handleLogin = async () => {
     }
     
     console.error('Login error:', err)
-    if (turnstileSiteKey) resetTurnstile()
+    if (turnstileSiteKey.value) resetTurnstile()
   } finally {
     loading.value = false
   }

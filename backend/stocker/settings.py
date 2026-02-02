@@ -209,5 +209,8 @@ SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': True,
 }
 
-# Cloudflare Turnstile (login protection) – Secret Key from backend/.env
+# Cloudflare Turnstile (login protection)
+# Site Key = public, can be exposed to frontend (e.g. via /api/public-config/ for production)
+# Secret Key = private, backend/.env only
+TURNSTILE_SITE_KEY = env('TURNSTILE_SITE_KEY', default='')
 TURNSTILE_SECRET_KEY = env('TURNSTILE_SECRET_KEY', default='')

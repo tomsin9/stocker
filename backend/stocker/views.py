@@ -4,7 +4,9 @@ Custom auth views (e.g. token with Cloudflare Turnstile verification).
 import requests
 from django.conf import settings
 from rest_framework import status
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 
@@ -60,3 +62,13 @@ class TurnstileTokenObtainPairView(TokenObtainPairView):
         serializer = TokenObtainPairSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         return Response(serializer.validated_data, status=status.HTTP_200_OK)
+
+
+class PublicConfigView(APIView):
+    """Public config for frontend (no auth). Used so production can get Turnstile site key at runtime."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        site_key = getattr(settings, 'TURNSTILE_SITE_KEY', None) or ''
+        return Response({'turnstile_site_key': site_key})
