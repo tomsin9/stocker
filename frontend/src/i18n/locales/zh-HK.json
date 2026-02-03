@@ -133,6 +133,20 @@
     "monthlyTracking": "月份追蹤",
     "settings": "設定"
   },
+  "sidebar": {
+    "subtitle": "投資組合管理",
+    "lightTheme": "淺色",
+    "darkTheme": "深色",
+    "lightMode": "淺色模式",
+    "darkMode": "深色模式",
+    "collapse": "收合",
+    "expand": "展開",
+    "collapseSidebar": "收合側邊欄",
+    "expandSidebar": "展開側邊欄",
+    "language": "語言",
+    "account": "帳戶",
+    "logout": "登出"
+  },
   "transactions": {
     "title": "交易紀錄",
     "description": "查看所有交易記錄",

@@ -1,7 +1,12 @@
 <script setup>
 import { provideCurrency } from '@/composables/useCurrency'
 import { provideAddOptions } from '@/composables/useAddOptions'
-import SideNavigation from '@/components/SideNavigation.vue'
+import {
+  SidebarProvider,
+  SidebarInset,
+  SidebarTrigger,
+} from '@/components/ui/sidebar'
+import AppSidebar from '@/components/AppSidebar.vue'
 import AddOptionsModal from '@/components/AddOptionsModal.vue'
 
 // 提供貨幣狀態給子組件
@@ -12,19 +17,13 @@ provideAddOptions()
 </script>
 
 <template>
-  <div class="min-h-screen bg-background flex flex-col md:flex-row">
-    <!-- Desktop: Side Navigation -->
-    <SideNavigation />
-
-    <!-- Main Content Area -->
-    <main class="flex-1 flex flex-col min-h-screen md:min-h-0 transition-all duration-300 ease-in-out">
-      <!-- Router View -->
-      <div class="flex-1 pb-16 md:pb-0 transition-all duration-300 ease-in-out">
+  <SidebarProvider>
+    <AppSidebar />
+    <SidebarInset>
+      <div class="flex-1 pb-16 md:pb-0">
         <router-view />
       </div>
-    </main>
-
-    <!-- Global Add Options Modal -->
+    </SidebarInset>
     <AddOptionsModal />
-  </div>
+  </SidebarProvider>
 </template>

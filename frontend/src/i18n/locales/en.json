@@ -134,6 +134,20 @@
     "monthlyTracking": "Monthly Tracking",
     "settings": "Settings"
   },
+  "sidebar": {
+    "subtitle": "Portfolio Manager",
+    "lightTheme": "Light",
+    "darkTheme": "Dark",
+    "lightMode": "Light Mode",
+    "darkMode": "Dark Mode",
+    "collapse": "Collapse",
+    "expand": "Expand",
+    "collapseSidebar": "Collapse Sidebar",
+    "expandSidebar": "Expand Sidebar",
+    "language": "Language",
+    "account": "Account",
+    "logout": "Log out"
+  },
   "transactions": {
     "title": "Transaction History",
     "description": "View all your trading records",

@@ -471,7 +471,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-background pb-20 md:pb-0 safe-area-bottom">
+  <div class="min-h-full bg-background pb-20 md:pb-0 safe-area-bottom">
     <div class="container mx-auto p-4 md:p-6 lg:p-8">
       <!-- Sticky Header -->
       <div class="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b pb-4 mb-4">
@@ -582,13 +582,13 @@ onUnmounted(() => {
           <CardContent>
             <!-- Summary Tab -->
             <div v-if="activeSummaryTab === 'summary'">
-              <div class="flex flex-col md:flex-row justify-between gap-4 md:gap-6">
+              <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
                 <!-- 左側：Net Liquidity -->
-                <div class="flex-1">
+                <div class="min-w-0">
                   <div class="text-xs sm:text-sm text-muted-foreground mb-2">
                     {{ t('dashboard.netLiquidity') }}
                   </div>
-                  <div class="text-2xl sm:text-3xl md:text-4xl font-bold mb-1">
+                  <div class="text-2xl sm:text-3xl md:text-4xl font-bold mb-1 truncate">
                     {{ formatCurrencyFull(summary.net_liquidity || 0) }}
                   </div>
                   <div class="text-xs sm:text-sm text-muted-foreground">
@@ -613,7 +613,7 @@ onUnmounted(() => {
                 </div>
 
                 <!-- 右側：3 欄網格 -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6 flex-1 lg:flex-none lg:w-auto">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 min-w-0">
                   <!-- Cash Pools -->
                   <div>
                     <div class="text-xs sm:text-sm text-muted-foreground mb-2">
